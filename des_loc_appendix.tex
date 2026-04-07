@@ -1,0 +1,348 @@
+% DES-LOC Appendix - Reconstructed from PDF
+% Claude-1 (M001-M025): Key appendix sections
+% Appendices A, C, F, G, H, I, J, K, L, M
+% (Appendices B, D, E contain extensive figures/proofs → deferred to Claude 9-14)
+
+\appendix
+
+%=============================================================================
+\section{Experimental Details and Optimizer Hyperparameter Sweeps}
+\label{sec:appendix_a}
+%=============================================================================
+
+\subsection{Architecture Details and Hyperparameters}
+\label{sec:arch_details}
+
+\begin{table}[h]
+\centering
+\caption{Model architecture and training parameters. We denote the number of transformer blocks by \#Blocks, number of attention heads by \#Heads, embedding dimension by $d_{\text{model}}$, vocabulary size by $|V|$, and feedforward-layer expansion by Exp.\ Ratio. All models use positional embeddings~\citep{su2024roformer}, the silu activation function, and norm-based gradient clipping with clip-bound $\rho$. Global batch size (summed across all workers) is $|B_G|$, and sequence length is standard for models at these scales. For model initialization we use $\sigma = 1/\sqrt{d_{\text{model}}}$. The total number of steps is denoted by $T$.}
+\label{tab:arch}
+\begin{tabular}{lccccccccccc}
+\toprule
+Model Size & Blocks & $d_{\text{model}}$ & $|V|$ & \#Heads & Exp.\ Ratio & ROPE $\theta$ & ACT & Init $\sigma$ & $\rho$ & Seq Len & $|B_G|$ & $T$ \\
+\midrule
+135M & 30 & 576  & 50K & 9  & 4 & 10000 & silu & 0.04 & 1.0 & 2048 & 1024 & 1536, 3072 \\
+720M & 12 & 2048 & 50K & 16 & 4 & 10000 & SiLU & 0.02 & 1.0 & 2048 & 512  & 38912 \\
+1.7B & 24 & 2048 & 50K & 16 & 4 & 10000 & silu & 0.02 & 1.0 & 2048 & 1024 & 20480 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:arch} summarizes the architectural details of our models, following established practices for large
+language models at their respective scales. Unless otherwise stated, we adopt the hyperparameters
+recommended by~\citet{allal2025smollm2} for both the 135M and the 1.7B models. We operate at a
+batch size of 2M tokens, which is very large for the 135M model at the length of training we
+perform~\citep{zhang2025critical} and industry-standard for the 1.7B model~\citep{touvron2023llama2}, we
+chose to operate at large batch sizes because adaptive optimizers provide benefits primarily in large-batch training regimes~\citep{kunstner2023noise}.
+
+We select warmup and decay schedules following recommendations from~\citet{zhang2025critical,hagele2024scaling,allal2025smollm2}. For the 135M model, the warmup period is set to $T_{\text{WARM}} = 512$
+steps, corresponding to roughly 40\% of the compute-optimal training tokens recommended by~\citet{zhang2025critical}. For the 1.7B model, we use the recommended $T_{\text{WARM}} = 2048$ steps from~\citet{allal2025smollm2}, roughly 10\% of total training. The stable-decay period uses a $1 - \text{SQRT}$ schedule over
+the final $T_{\text{DECAY}} = 10\% \times T$ steps~\citep{hagele2024scaling}.
+
+\subsection{Optimizer Parameters Sweeping Procedure}
+\label{sec:sweep}
+
+As detailed in Section~\ref{sec:desloc} and verified empirically in Section~\ref{sec:rq2}, the choice of decay rates $\beta_1, \beta_2$
+strongly influences the effective synchronization frequencies achievable by both DES-LOC and
+Local Adam. This relationship arises directly from the half-life of optimizer states, given by
+$\tau_{0.5} = \frac{\ln(0.5)}{\ln(\beta)}$.
+
+Due to computational constraints, we cannot jointly optimize synchronization periods, data distributions, and decay parameters, and instead adopt a structured two-stage tuning approach:
+\begin{enumerate}
+    \item \textbf{Stage 1: Tuning $\eta$ for DDP.} Starting from the recommended baseline learning rate ($\eta_0$)
+    from~\citet{allal2025smollm2}, we conduct a grid search as outlined by~\citet{charles2025communication}:
+    $\{\ldots, \sqrt{2}^{-2}\eta_0, \sqrt{2}^{-1}\eta_0, \eta_0, \sqrt{2}\eta_0, \sqrt{2}^2\eta_0, \ldots\}$
+    We expand this search until perplexity stops improving, identifying an optimal learning rate $\eta^*_{\text{DDP}}$ for each $(\beta_1, \beta_2)$ configuration.
+
+    \item \textbf{Stage 2: Tuning $\eta$ for Local Adam.} We then repeat this procedure for Local Adam,
+    using $\eta^*_{\text{DDP}}$ as the new baseline. To balance generalizability and computational cost, we set
+    the synchronization period to an intermediate value of $K = 64$.
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\caption{Optimal learning rates $\eta^*$ for $\beta_1, \beta_2$ configurations of ADOPT/Adam.}
+\label{tab:lr_sweep}
+\begin{tabular}{llll}
+\toprule
+Optimizer & $\beta_1$ & $\beta_2$ & $\eta^*$ \\
+\midrule
+\multirow{4}{*}{ADOPT} & 0.9   & 0.9999 & 0.0021 \\
+                        & 0.95  & 0.9999 & 0.0021 \\
+                        & 0.99  & 0.9999 & 0.0014 \\
+                        & 0.995 & 0.9999 & 0.0007 \\
+\midrule
+\multirow{5}{*}{Adam}  & 0.9   & 0.95   & 0.0042 \\
+                        & 0.95  & 0.95   & 0.003  \\
+                        & 0.9   & 0.99   & 0.003  \\
+                        & 0.95  & 0.99   & 0.003  \\
+                        & 0.99  & 0.99   & 0.0021 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=============================================================================
+\section{Complementary Results to Sections 2.1 and 5}
+\label{sec:complementary}
+%=============================================================================
+
+% NOTE: This section contains extensive figures (Figs 8-22) and experimental results.
+% Full LaTeX reconstruction deferred to Claude instances 9-10 (M201-M250).
+% Key takeaways summarized here for completeness.
+
+% B.1: Toy Problem on Non-IID Data → DES-LOC converges, heuristics fail
+% B.2: Independent sync frequency ablations → confirms theory
+% B.3: Communication reduction baselines → 2x over Local Adam
+% B.4: FAVG+OPT instabilities → activation norm growth
+% B.5: DES-LOC Nesterov vs DiLoCo at 1B → DES-LOC competitive
+% B.6: Very low bandwidth (10 Gbit/s) → DES-LOC still beneficial
+% B.7: Muon experimental details → Kx=32, Ku=96
+% B.8: Flux vision model → DES-LOC generalizes beyond LLMs
+% B.9: 7B throughput on B200 → near-linear scaling
+
+%=============================================================================
+\section{Further Algorithmic Details of DES-LOC}
+\label{sec:appendix_c}
+%=============================================================================
+
+\subsection{Extension to FedOpt}
+\label{sec:fedopt}
+
+Although~\citet{cheng2025convergence} show provable convergence for adaptive inner optimizers in a
+federated optimization framework, their result rests on the assumption that after a period of local
+work, the new global model is created by averaging the local client models. In relation to the larger
+FedOpt literature~\citep{reddi2021adaptive}, the scheme chosen by~\citet{cheng2025convergence} resembles
+that of FedAvg, or where the server optimizer is SGD with the outer learning rate set to one.
+
+We argue that indeed DES-LOC's principles can be effectively applied to any FedOpt method and
+not just FedAvg. While using an alternate server optimizer does not have proven convergence
+guarantees as yet, we show in Algorithm~\ref{alg:desloc} that the choice of the ServerOpt is not constrained
+from a practical point-of-view. However, the improvements that DES-LOC provide are related to
+the local optimization procedure, which is orthogonal to the outer optimizer choice.
+
+\subsection{Deterministic Optimizer-specific Variants of Algorithm 1}
+\label{sec:algorithm_variants}
+
+\begin{algorithm}[h]
+\caption{DES-LOC-Adam}
+\label{alg:desloc_adam}
+\begin{algorithmic}[1]
+\REQUIRE Model tensors, Hyper-parameters
+\STATE $x_0, u_{-1}, v_{-1} \in \mathbb{R}^d$ \COMMENT{initial parameter vector, seeds for first and second moments}
+\STATE $\{\eta_t\}_{t=0}^{T-1} \subset \mathbb{R}_{>0}$ \COMMENT{step-size schedule}
+\STATE $\beta_1, \beta_2 \in [0,1)$ \COMMENT{Adam decay factors}
+\STATE $\rho, \lambda \in \mathbb{R}_{>0}$ \COMMENT{gradient clipping term, $\ell_2$ stability term}
+\STATE $T, M \in \mathbb{N}_+$ \COMMENT{total iterations, number of workers}
+\STATE $K_x, K_u, K_v \in \mathbb{N}_+$ \COMMENT{sync periods for parameters, first and second moments}
+\ENSURE $x_T, u_{T-1}, v_{T-1}$
+\STATE for each worker $m$: $x^m_0 = x_0$, $u^m_{-1} = v^m_{-1} = 0$
+\FOR{$t = 0, \ldots, T-1$}
+    \FOR{all workers $m = 0, \ldots, M-1$ \textbf{in parallel}}
+        \STATE $g^m_t \gets \nabla F(x^m_t; \xi^m_t)$
+        \STATE $\hat{g}^m_t \gets \text{clip}(g^m_t, \rho)$
+        \IF{$t \bmod K_u = 0$}
+            \STATE $u^m_t \gets \beta_1 \mathbb{E}_m[u^m_{t-1}] + (1 - \beta_1)\hat{g}^m_t$
+        \ELSE
+            \STATE $u^m_t \gets \beta_1 u^m_{t-1} + (1 - \beta_1)\hat{g}^m_t$
+        \ENDIF
+        \IF{$t \bmod K_v = 0$}
+            \STATE $v^m_t \gets \beta_2 \mathbb{E}_m[v^m_{t-1}] + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
+        \ELSE
+            \STATE $v^m_t \gets \beta_2 v^m_{t-1} + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
+        \ENDIF
+        \STATE $m^m_t \gets \beta_1 m^m_{t-1} + (1 - \beta_1) \frac{\hat{g}^m_t}{\max\{\sqrt{v^m_{t-1}}, \epsilon\}}$ \COMMENT{ADOPT update}
+        \STATE $d^m_t \gets \eta_t m^m_t$
+        \IF{$t \bmod K_x = 0$}
+            \STATE $x^m_{t+1} \gets \mathbb{E}_m[x^m_t] - d^m_t$
+        \ELSE
+            \STATE $x^m_{t+1} \gets x^m_t - d^m_t$
+        \ENDIF
+    \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+%=============================================================================
+% Appendix D: Convergence Analysis of DES-LOC-SGDM
+% NOTE: Full 8-page proof deferred to Claude instances 12-13 (M276-M325)
+%=============================================================================
+\section{Convergence Analysis of DES-LOC-SGDM (in expectation bounds)}
+\label{sec:sgdm_proof}
+% Placeholder — full proof spans pages 32-43 of the PDF
+
+%=============================================================================
+% Appendix E: High-probability bounds for DES-LOC-Adam
+% NOTE: Full proof deferred to Claude instance 14 (M326-M350)
+%=============================================================================
+\section{Convergence Analysis of DES-LOC-Adam (high-probability bounds)}
+\label{sec:high_prob}
+% Placeholder — full proof spans pages 44-46 of the PDF
+
+%=============================================================================
+\section{Derivation of Eqs.\ (1) and (2): Maximum Momentum Change With Clipping}
+\label{sec:drift_derivation}
+%=============================================================================
+
+\textbf{Step 2: Bound on $\|u_{t+K} - u_t\|_\infty$.} Now we bound the change in the momentum over $K$ steps
+explicitly. Unrolling the recursion, we have:
+\begin{equation}
+u_{t+K} = \beta_1^K u_t + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k g_{t+K-k}.
+\label{eq:unroll_u}
+\end{equation}
+
+Subtracting $u_t$ from both sides, we obtain:
+\begin{equation}
+u_{t+K} - u_t = (\beta_1^K - 1)u_t + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k g_{t+K-k}.
+\label{eq:diff_u}
+\end{equation}
+
+Applying the triangle inequality gives:
+\begin{equation}
+\|u_{t+K} - u_t\|_\infty \leq |1 - \beta_1^K| \|u_t\|_\infty + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k \|g_{t+K-k}\|_\infty.
+\label{eq:triangle_u}
+\end{equation}
+
+Using $\|g_{t,i}\|_\infty \leq \rho$ (from coordinate-wise clipping) and $\|u_t\|_\infty \leq \rho$ (by induction, since $u$ is an exponential moving average of clipped gradients), the geometric series evaluates to:
+\begin{equation}
+\|u_{t+K} - u_t\|_\infty \leq (1 - \beta_1^K)\rho + (1 - \beta_1^K)\rho = 2\rho(1 - \beta_1^K).
+\end{equation}
+
+The identical argument applies to the second moment $v_t$ with $\rho$ replaced by $\rho^2$ (since $(g_t \odot g_t)_i \leq \rho^2$), yielding:
+\begin{equation}
+\|v_{t+K} - v_t\|_\infty \leq 2\rho^2(1 - \beta_2^K).
+\end{equation}
+
+%=============================================================================
+\section{Wall-Clock Time Modeling}
+\label{sec:wallclock_model}
+%=============================================================================
+
+\subsection{Estimating Total Wall-Clock Time}
+
+We model the total wall-clock time $\mathcal{T}$ for training as:
+\begin{equation}
+\mathcal{T} = T \cdot t_{\text{step}} + R_x \cdot t_{\text{comm}}(x) + \sum_{j=1}^{N} R_j \cdot t_{\text{comm}}(s^j),
+\end{equation}
+where $T$ is the total number of steps, $t_{\text{step}}$ is the per-step computation time, $R_x = T/K_x$ is the number of parameter sync rounds, $R_j = T/K_j$ is the number of sync rounds for state $j$, and $t_{\text{comm}}(\cdot)$ is the communication time for a given tensor.
+
+For Ring-AllReduce with model size $|x|$ parameters, bandwidth $B_w$ (bytes/sec), and $M$ workers:
+\begin{equation}
+t_{\text{comm}}(x) = \frac{2(M-1)}{M} \cdot \frac{|x| \cdot \text{bytes\_per\_param}}{B_w}.
+\end{equation}
+
+DES-LOC's communication cost relative to DDP is:
+\begin{equation}
+\frac{\mathcal{T}_{\text{DES-LOC}}}{\mathcal{T}_{\text{DDP}}} = \frac{T \cdot t_{\text{step}} + \frac{T}{K_x} t_{\text{comm}}(x) + \frac{T}{K_u} t_{\text{comm}}(u) + \frac{T}{K_v} t_{\text{comm}}(v)}{T \cdot (t_{\text{step}} + t_{\text{comm}}(x) + t_{\text{comm}}(u) + t_{\text{comm}}(v))}.
+\end{equation}
+
+With $K_x = 256$, $K_u = 3K_x = 768$, $K_v = 6K_x = 1536$, DES-LOC communicates $\approx 170\times$ less than DDP.
+
+\begin{table}[h]
+\centering
+\caption{Throughput (tokens/sec/GPU) at different scales. DES-LOC matches FAVG+OPT throughput.}
+\label{tab:throughput}
+\begin{tabular}{l|cc|cc}
+\toprule
+& \multicolumn{2}{c|}{1B Model} & \multicolumn{2}{c}{7B Model} \\
+$K_x$ & 16 & 256 & 16 & 256 \\
+\midrule
+DDP          & 60k & 60k & 8.5k & 8.5k \\
+FAVG+OPT     & 106k & 135k & 11.5k & 13.7k \\
+Local Adam   & 89k & 132k & 10.4k & 13.6k \\
+DES-LOC      & 105k & 134k & 11.4k & 13.7k \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%=============================================================================
+\section{Checkpointing vs.\ Periodic State Synchronization}
+\label{sec:checkpoint}
+%=============================================================================
+
+A natural question is whether periodic checkpointing can replace DES-LOC's explicit state synchronization for handling worker failures. We argue it cannot, for two reasons:
+
+\begin{enumerate}
+\item \textbf{State staleness.} When a new worker joins from a checkpoint, its optimizer states ($u, v$) reflect the global state at checkpoint time. If the checkpoint is old, these states are stale and can cause training instability. DES-LOC's periodic synchronization ensures all workers' states stay within bounded drift (Eqs.~\ref{eq:drift_u},~\ref{eq:drift_v}).
+
+\item \textbf{No convergence guarantees.} Ad-hoc checkpoint averaging provides no theoretical guarantees about the quality of the resulting optimizer states. DES-LOC's provable convergence (Theorem~\ref{thm:sgdm}) holds precisely because synchronization is periodic and bounded.
+\end{enumerate}
+
+%=============================================================================
+\section{Choosing Synchronization Frequencies}
+\label{sec:choosing_freq}
+%=============================================================================
+
+For a state with a decay rate $\beta$ approaching 1, the half-life can be calculated as:
+\begin{equation}
+t_{1/2} \approx \frac{\ln 2}{1 - \beta}.
+\end{equation}
+
+Based on this, we propose the following two-step methodology:
+
+\paragraph{Parameters First ($K_x$).} The synchronization of model parameters is paramount to training
+quality. The period $K_x$ should be chosen to match the end-of-training quality of fully-synchronous DDP at a target step budget while still materially reducing communication. In
+practice, starting points like $K_x = 16$ or $K_x = 32$ are effective.
+
+\paragraph{Momentum by Half-Life ($K_u, K_v$).} For any optimizer momentum state with a decay rate
+$\beta$, its synchronization period $K$ should be set near its calculated half-life, i.e., $K \approx t_{1/2}$.
+For common optimizers like Adam or ADOPT with well-tuned decay rates $\beta_1$ and $\beta_2$, this
+simplifies to:
+\begin{equation}
+K_u \approx \frac{\ln 2}{1 - \beta_1}, \quad K_v \approx \frac{\ln 2}{1 - \beta_2}.
+\end{equation}
+
+Following this heuristic can yield a minimum $5\times$ reduction in communication cost over DDP for
+$K_x \geq 16$, significantly decreasing wall-clock time while achieving convergence speed and final
+model quality comparable to DDP.
+
+%=============================================================================
+\section{Critical Batch Size and Regime Positioning}
+\label{sec:critical_batch}
+%=============================================================================
+
+To formally contextualize the regimes where DES-LOC is most beneficial, we begin with the statistical
+properties of gradient estimation. Let the true gradient over the full data distribution for a loss function
+$L: \mathbb{R}^d \to \mathbb{R}$ be $G(\theta) = \nabla L(\theta)$. In practice, a mini-batch of size $B$ provides an estimate, $G_{\text{est}}(\theta)$.
+The variance of this estimator scales inversely with the batch size:
+\begin{equation}
+\text{Var}[G_{\text{est}}(\theta)] = \frac{1}{B}\Sigma(\theta),
+\end{equation}
+where $\Sigma(\theta)$ is the per-sample gradient covariance. DES-LOC is most beneficial in the large-batch regime where communication costs dominate compute costs.
+
+%=============================================================================
+\section{Extended Related Work}
+\label{sec:extended_related}
+%=============================================================================
+
+\paragraph{Gradient compression and sparsification.}
+Methods like Deep Gradient Compression~\citep{lin2018deep}, TopK sparsification~\citep{alistarh2018convergence}, and CocktailSGD~\citep{wang2023cocktailsgd} reduce communication by compressing or sparsifying gradients. These are orthogonal to DES-LOC and can be combined for further savings.
+
+\paragraph{Model parallelism.}
+Megatron-LM~\citep{shoeybi2019megatron}, ZeRO~\citep{rajbhandari2020zero}, and FSDP~\citep{zhao2023pytorch} partition model parameters across devices. DES-LOC focuses on data parallelism and is complementary to model-parallel approaches.
+
+\paragraph{Personalized and heterogeneous federated learning.}
+Methods like Ditto~\citep{li2021ditto}, FedProx~\citep{li2020federated}, and Per-FedAvg~\citep{fallah2020personalized} address non-IID data in federated settings. DES-LOC inherits robustness to heterogeneity from its theoretical framework (Assumption~\ref{asm:heterogeneity}).
+
+%=============================================================================
+\section{LLM Usage Declaration}
+\label{sec:llm_usage}
+%=============================================================================
+
+Large Language Models were used during the preparation of this work for editing and improving the
+text quality of the manuscript. No LLM was used for generating scientific content, proofs, or
+experimental results. All technical contributions are the original work of the authors.
+
+%=============================================================================
+\section{Limitations}
+\label{sec:limitations}
+%=============================================================================
+
+\begin{enumerate}
+\item \textbf{Communication overlap.} Our current implementation uses a ``stop-the-world'' synchronization approach. Overlapping communication with computation~\citep{douillard2025streaming} could further improve wall-clock time.
+
+\item \textbf{Heterogeneous hardware.} We assume homogeneous worker hardware. Extending DES-LOC to heterogeneous clusters with different compute speeds is left for future work.
+
+\item \textbf{Adaptive synchronization.} Our synchronization periods are fixed throughout training. Adapting them based on training dynamics (e.g., increasing $K_x$ as training progresses) could yield further improvements.
+
+\item \textbf{Scale of experiments.} While we validate up to 1.7B parameters and project to 13B, experiments at truly large scale (100B+) remain future work due to resource constraints.
+\end{enumerate}

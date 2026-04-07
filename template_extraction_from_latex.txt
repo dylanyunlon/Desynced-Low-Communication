@@ -1,0 +1,365 @@
+================================================================================
+DES-LOC 论文模板化提炼（基于 LaTeX 源码逐段提取）
+源文件: des_loc_reconstructed.tex
+方法: 从每个 \section / \subsection 中提取核心概念, 用模板字母标记
+第一位Claude (M001-M025) 完成范围: Section 1-7 全部正文
+================================================================================
+
+【映射表说明】
+每行格式: "模板字母 = 论文中的具体词/短语 (出自LaTeX哪一行/哪个section)"
+映射覆盖论文正文全部7个section + Algorithm 1 + Theorem 1 + 3个Assumption + 2个Table
+
+================================================================================
+一、Section 1 Introduction 提炼
+================================================================================
+
+A+B+C 搭建 D E
+= DES-LOC + Adam + PyTorch DDP 搭建 分布式训练系统 框架
+
+【原文对应 LaTeX】
+\title{DES-LOC: Desynced Low Communication Adaptive Optimizers for Foundation Models}
+→ A = DES-LOC (论文标题主体)
+→ B = Adam (Section 1 第5段: "adaptive optimizers (Kingma & Ba, 2015)")
+→ C = DDP (Section 1 第1段: "Distributed Data Parallelism (DDP)")
+→ D = 分布式训练系统 (Section 1: "distributing optimization across workers")
+→ E = 框架 (论文定位: "a family of optimizers" → 框架级产物)
+
+采用 F G 将 H 中的 I 全部分离出来，让 H 只做 J K 的处理，所有跟 L 无关的 I 由 M 层来完成，降低了 N，使得层级职责更加明确。
+= 采用 独立同步周期策略 (Independent Synchronization Periods) 将 Local Adam 中的 优化器状态同步逻辑 全部分离出来，让 Local Adam 只做 参数(parameters) 更新 的处理，所有跟 参数同步 无关的 优化器状态同步逻辑 由 动量(momenta) 层来完成，降低了 通信开销，使得层级职责更加明确。
+
+【原文对应 LaTeX】
+Abstract: "assigning independent synchronization periods to parameters and momenta"
+→ F = 独立同步周期策略
+→ G = (Independent Synchronization Periods)
+Section 1 第3段: "Local Adam ... requires synchronizing momenta alongside model parameters, tripling communication costs"
+→ H = Local Adam
+→ I = 优化器状态同步逻辑
+→ J = 参数 (parameters)  [Abstract: "synchronize model parameters"]
+→ K = 更新
+→ L = 参数同步 [Section 1: "synchronize model parameters only"]
+→ M = 动量 (momenta) [Abstract: "parameters and momenta"]
+→ N = 通信开销 [Abstract: "enabling lower communication costs"]
+
+使用 O 和 C 中的 P，通过 Q 的方式完成 M 的 R 的创建，避免了 S 层直接创建 M 与 M 层直接创建 R 造成的 T，将 S 层与 M 层，M 层与 R 层进行 U，降低了 V 的 N。
+= 使用 SGDM 和 DDP 中的 AllReduce，通过 概率化周期同步(px=1/Kx) 的方式完成 动量 的 同步周期(Kx,Ku,Kv) 的创建，避免了 Worker 层直接创建 动量 与 动量 层直接创建 同步周期 造成的 耦合(coupling)，将 Worker 层与 动量 层，动量 层与 同步周期 层进行 解耦(decouple/desync)，降低了 各层 的 通信开销。
+
+【原文对应 LaTeX】
+Section 3 (Theorem 1): "SGDM optimizer under such probabilistic and decoupled synchronization"
+→ O = SGDM [Section 3: "SGD with momentum (SGDM)"]
+→ P = AllReduce [Section 4.1: "Ring-AllReduce"]
+→ Q = 概率化周期同步 [Section 3: "we average with probability px = 1/Kx"]
+→ R = 同步周期 (Kx, Ku, Kv) [Algorithm 1 line 7: "Kx, {Kj} — communication periods"]
+→ S = Worker [Algorithm 1 line 10: "for all workers m"]
+→ T = 耦合 [论文核心问题: Local Adam将所有状态统一同步→耦合]
+→ U = 解耦 [论文标题"Desynced" = desynchronized/decoupled]
+→ V = 各层 [指参数层、第一动量层、第二动量层]
+
+================================================================================
+二、Section 2 DES-LOC Algorithm 提炼
+================================================================================
+
+W X（梯度裁剪）
+= 梯度 裁剪机制
+
+【原文对应 LaTeX】
+Section 2: "With coordinate-wise clipping, each gradient component satisfies |(gt)i| ≤ ρ"
+Algorithm 1 line 12: "ĝ_t^m ← clip(g_t^m, ρ)   per-coordinate clipping"
+→ W = 梯度 (gradient)
+→ X = 裁剪机制
+→ 四字中文: 梯度裁剪 (实际论文用 "coordinate-wise clipping")
+
+基于 Y+B 进行了 Z，构建了 α Y β 的 γ δ，内部对 ε 进行 α 并配置了相关的 ζ，避免了重复创建 Y η 以及重复配置 θ。
+= 基于 ADOPT+Adam 进行了 封装，构建了 初始化 ADOPT 变体 的 管理 模块，内部对 超参数(β1,β2,η) 进行 初始化 并配置了相关的 回调/钩子(callback/hook)，避免了重复创建 ADOPT 实例 以及重复配置 学习率调度(WSD schedule)。
+
+【原文对应 LaTeX】
+Section 4.1: "ADOPT (Taniguchi et al., 2024), which modifies the update to guarantee convergence for any β2"
+→ Y = ADOPT
+→ Z = 封装 [论文: "Our approach applies generically to adaptive optimizers parameterized by OPT"]
+→ α = 初始化 [Algorithm 1 line 8: "for each worker m: x0^m ← x0, s_{-1}^{j,m} ← s_{-1}^j  local init"]
+→ β = 变体 [Section 4.1: "Adam and its variant ADOPT"]
+→ γ = 管理
+→ δ = 模块
+→ ε = 超参数(β1, β2, η) [Section 2: "τ_0.5(0.95)≈13.5", Table 4: "β1, β2, η*"]
+→ ζ = 回调/钩子 [Algorithm 1: UPDATE^j函数 = 状态更新回调]
+→ η_var = 实例 [区别于学习率η]
+→ θ = 学习率调度(WSD schedule) [Section 4.1: "Learning rates use the WSD schedule"]
+
+将 ζ 的具体实现交由 ι，κ 只需要 λ 并在指定的 μ 实现特定的 ζ 处理，即可将 ν、ξ 等进行 ο 配置。
+= 将 回调/钩子 的具体实现交由 子类(具体优化器实现)，用户/调用方 只需要 继承 并在指定的 方法(method) 实现特定的 回调/钩子 处理，即可将 warmup、参数(argument) 等进行 统一 配置。
+
+【原文对应 LaTeX】
+Algorithm 1 line 2: "{UPDATE^j}: (R^d × R^d → R^d)^N — updates optimizer state j"
+→ ι = 子类(具体优化器实现) [DES-LOC-Adam, DES-LOC-ADOPT, DES-LOC-Muon均为具体实现]
+→ κ = 用户/调用方
+→ λ = 继承 [Algorithm 2继承Algorithm 1的结构]
+→ μ = 方法(method) [UPDATE^j是需要实现的方法]
+→ ν = warmup [Section A.1: "warmup period TWARM = 512 steps"]
+→ ξ = 参数(argument/param) [Algorithm 1各行的函数参数]
+→ ο = 统一 [DES-LOC统一了SGDM/Adam/ADOPT/Muon的接口]
+
+π 了 ρ_var 来处理 σ τ 以及 τ υ 的 γ φ，使得 κ 只需在使用的时候添加自己对应的 χ 和 ψ，调用方便简洁。
+= 封装 了 辅助工具类(HelperUtils) 来处理 坐标级(coordinate-wise) 裁剪 以及 裁剪 数据 的 管理 流程，使得 用户/调用方 只需在使用的时候添加自己对应的 配置项(config) 和 策略(strategy)，调用方便简洁。
+
+【原文对应 LaTeX】
+Section 2: "[clip(X,ρ)]_i = sgn(X_i)·min{|X_i|, ρ}"
+→ π = 封装
+→ ρ_var = 辅助工具类 [clip函数本身就是一个工具函数]
+→ σ = 坐标级 (coordinate-wise) [Section 2: "coordinate-wise clipping"]
+→ τ = 裁剪
+→ υ = 数据
+→ φ = 流程
+→ χ = 配置项(config) [ρ裁剪半径就是配置项]
+→ ψ_var = 策略(strategy) [coordinate-wise vs norm-based是不同的裁剪策略]
+
+================================================================================
+三、Section 2.1 Algorithm 1 DES-LOC 提炼
+================================================================================
+
+ω Ⅰ（状态同步机制）
+= 状态 同步
+
+【原文对应 LaTeX】
+Algorithm 1 核心循环 lines 9-21
+→ ω = 状态 [Algorithm 1: "optimizer states {s^j}"]
+→ Ⅰ = 同步 [Algorithm 1 line 14: "if t mod Kj = 0 then  sync s^j"]
+
+基于 Ⅱ π 了 Ⅲ Ⅰ E，主要是在 Ⅳ Ⅴ 中记录 Ⅵ 与对应的 Ⅳ 实现 Ⅶ Ⅷ 以及所有的 Ⅸ 列表，当 Ⅹ 调用 Ⅳ 时，通过 Ⅱ 将 Ⅵ、Ⅺ 以及执行 Ⅸ 需要的 ξ 传递给 Ⅻ，Ⅻ 利用 ⅩⅢ 即可执行 Ⅳ 中的 Ⅸ，相比与 Ⅱ ω Ⅰ，不需要再创建 Ⅱ ⅩⅣ 以及创建 ⅩⅤ，极大的简化了 Ⅱ ω Ⅰ 的操作。
+= 基于 Ring-AllReduce 封装 了 轻量 同步 框架，主要是在 通信轮次(communication round) 缓冲区(buffer) 中记录 worker ID 与对应的 通信轮次 实现 分布式 追踪 以及所有的 聚合操作(aggregation ops) 列表，当 训练循环(training loop) 调用 通信轮次 时，通过 Ring-AllReduce 将 worker ID、时间步t 以及执行 聚合操作 需要的 参数 传递给 调度器(Scheduler)，调度器 利用 mod运算(t mod K) 即可执行 通信轮次 中的 聚合操作，相比与 Ring-AllReduce 状态 同步，不需要再创建 Ring-AllReduce 通道(channel) 以及创建 连接(connection)，极大的简化了 Ring-AllReduce 状态 同步 的操作。
+
+【原文对应 LaTeX】
+Algorithm 1 line 14-15: "if t mod Kj = 0 then sync s^j → s_t^{j,m} ← UPDATE^j(E_m[s_{t-1}^j], ĝ_t^m)"
+Algorithm 1 line 18-19: "if t mod Kx = 0 then sync x → x_{t+1}^m ← OPT(SERVEROPT(E_m[x_t^m])...)"
+Section 4.1: "bandwidth-optimal Ring-AllReduce"
+→ Ⅱ = Ring-AllReduce
+→ Ⅲ = 轻量
+→ Ⅳ = 通信轮次 [论文: "R the total communication rounds"]
+→ Ⅴ = 缓冲区 [optimizer states stored in buffers]
+→ Ⅵ = worker ID [Algorithm 1: "worker m"]
+→ Ⅶ = 分布式
+→ Ⅷ = 追踪 [tracking which round each worker is at]
+→ Ⅸ = 聚合操作 [E_m[·] = averaging across workers = aggregation]
+→ Ⅹ = 训练循环 [Algorithm 1 line 9: "for t = 0,...,T-1  training loop"]
+→ Ⅺ = 时间步t [Algorithm 1: variable t]
+→ Ⅻ = 调度器 [负责决定何时执行同步的逻辑]
+→ ⅩⅢ = mod运算(t mod K) [Algorithm 1 line 14: "if t mod Kj = 0"]
+→ ⅩⅣ = 通道 [Ring-AllReduce的通信通道]
+→ ⅩⅤ = 连接 [worker之间的网络连接]
+
+================================================================================
+四、Section 2 半衰期理论 + Section 3 收敛理论 提炼
+================================================================================
+
+ⅩⅥ ⅩⅦ ⅩⅧ（半衰期感知自适应调频）
+= 半衰期 感知 自适应调频
+
+【原文对应 LaTeX】
+Section 2: "τ_ψ(β) = ln(ψ)/ln(β) ... we use the half-life τ_0.5 as our primary measure"
+Section 5.2 Takeaway: "Momentum synchronization periods matter empirically only when chosen near their half-lives"
+→ ⅩⅥ = 半衰期 [half-life τ_0.5]
+→ ⅩⅦ = 感知 [感知各状态的变化速率来决定同步频率]
+→ ⅩⅧ = 自适应调频 [根据β值自适应调整同步频率Kx/Ku/Kv]
+
+J 采用 ⅩⅨ ⅩⅩ ⅩⅪ 的方式，进行完全 ⅩⅫ，主要在 ⅩⅪ 中的 ⅩⅩⅢ μ 中结合 ⅩⅩⅣ 来判断 ⅩⅪ 处于 zz 到 vv、vv 到 zz 的哪种状态，从而执行对应的 W υ 加载或 W ⅩⅩⅤ 取消，优化 W ⅩⅩⅤ ⅩⅩⅥ 的设置，减少了偶尔发生的由于 W kk 带来的 ⅩⅩⅦ，同时减少了不必要的 ⅩⅪ ⅩⅩⅧ υ ⅩⅩⅨ 而带来的极端情况下的 ⅩⅩⅩ ⅩⅩⅪ。
+= 参数 采用 τ0.5(β) 衰减率 优化器状态 的方式，进行完全 解耦，主要在 优化器状态 中的 生命周期 方法 中结合 半衰期公式τ_ψ(β)=ln(ψ)/ln(β) 来判断 优化器状态 处于 前台 到 后台、后台 到 前台 的哪种状态，从而执行对应的 梯度 数据 加载或 梯度 发送 取消，优化 梯度 发送 阈值 的设置，减少了偶尔发生的由于 梯度 泄漏 带来的 卡顿(stall)，同时减少了不必要的 优化器状态 高频 数据 缓存 而带来的极端情况下的 内存 OOM。
+
+【原文对应 LaTeX】
+Section 2, Eqs (1)(2): "‖u_{t+K} − u_t‖_∞ ≤ 2ρ(1 − β1^K)"
+Section 3, Theorem 1: step size restriction η0 involving ψ
+→ ⅩⅨ = τ0.5(β) [Section 2: half-life formula]
+→ ⅩⅩ = 衰减率 [β1, β2 are decay rates]
+→ ⅩⅪ = 优化器状态(optimizer state) [Algorithm 1: s^j]
+→ ⅩⅫ = 解耦 [Title: "Desynced" = desynchronized]
+→ ⅩⅩⅢ = 生命周期 [half-life = 状态的"生命周期"]
+→ ⅩⅩⅣ = 半衰期公式 τ_ψ(β) = ln(ψ)/ln(β)
+→ zz = 前台 [active training phase]
+→ vv = 后台 [idle/waiting phase]
+→ ⅩⅩⅤ = 发送 [communication = sending states]
+→ ⅩⅩⅥ = 阈值 [Kj thresholds for when to sync]
+→ kk = 泄漏 [gradient leakage between workers]
+→ ⅩⅩⅦ = 卡顿(stall) [Section 1: "workers need to wait for synchronization"]
+→ ⅩⅩⅧ = 高频 [high-frequency sync, e.g. Kx=16]
+→ ⅩⅩⅨ = 缓存 [buffered optimizer states]
+→ ⅩⅩⅩ = 内存 [memory for storing 3x states in Local Adam]
+→ ⅩⅩⅪ = OOM [memory overflow from too many buffered states]
+
+================================================================================
+五、Section 4 Experimental Design 提炼 (通信层 + 协议)
+================================================================================
+
+ⅩⅩⅫ Ⅰ（Communication Layer 同步）
+= 通信层 同步
+
+基于对 ⅩⅩⅫ ⅩⅩⅩⅢ 的 ⅩⅩⅩⅣ 的 ⅩⅩⅩⅤ π，将具体的 ⅩⅩⅫ 连接、断开等相关操作 π 到一个 ⅩⅩⅩⅥ，降低了底层 ⅩⅩⅩⅦ Ⅰ 与 I 代码缝合的问题。
+= 基于对 通信层(Communication Layer) 协议(protocol) 的 接口(interface) 的 二次 封装，将具体的 通信层 连接、断开等相关操作 封装 到一个 管理器(Manager)，降低了底层 通信 同步 与 优化器状态同步逻辑 代码缝合的问题。
+
+【原文对应 LaTeX】
+Section 4.1: "100Gb/s links", "Ring-AllReduce algorithm scaling linearly with model size"
+Section G.1: Wall-clock time modeling for communication
+→ ⅩⅩⅫ = 通信层 [the networking/communication layer between workers]
+→ ⅩⅩⅩⅢ = 协议 [AllReduce protocol]
+→ ⅩⅩⅩⅣ = 接口 [OPT, SERVEROPT, UPDATE^j are interfaces]
+→ ⅩⅩⅩⅤ = 二次 [secondary wrapping]
+→ ⅩⅩⅩⅥ = 管理器 [Manager pattern for comms]
+→ ⅩⅩⅩⅦ = 通信 [communication]
+
+根据具体的 ⅩⅩⅫ ⅩⅩⅩⅢ π 成了 ⅩⅩⅤ υ 的 ⅩⅩⅩⅧ ⅩⅩⅩⅨ 和获取的 υ 的 ⅩⅩⅩⅧ ⅩⅬ，κ 发送或接受 υ 时只需要定义一个 XLI 去 λ ⅩⅩⅩⅨ 或 ⅩⅬ 并在特定的 μ 中实现对应的 K 处理，无需在 Ⅰ 过程中重复拼接 ⅩⅩⅩⅢ，大大减少了 XLII 量，出 XLIII 时更容易的能定位问题。
+= 根据具体的 通信层 协议 封装 成了 发送 数据 的 序列化 发送器(Sender) 和获取的 数据 的 序列化 接收器(Receiver)，用户/调用方 发送或接受 数据 时只需要定义一个 类(class) 去 继承 发送器 或 接收器 并在特定的 方法 中实现对应的 更新 处理，无需在 同步 过程中重复拼接 协议，大大减少了 代码 量，出 bug 时更容易的能定位问题。
+
+→ ⅩⅩⅩⅧ = 序列化 [serialization of tensors for network transfer]
+→ ⅩⅩⅩⅨ = 发送器(Sender)
+→ ⅩⅬ = 接收器(Receiver)
+→ XLI = 类(class)
+→ XLII = 代码
+→ XLIII = bug
+
+================================================================================
+六、Section 4.1 FedOpt扩展 + 多场景适配 提炼
+================================================================================
+
+XLIV XLV（多场景适配）
+= 多场景 适配
+
+采用 XLVI 方案进行 XLIV XLV，实现了 XLV XLVII 自由控制，解决了在不同 XLVIII 下的 XLIV XLV 的问题。
+= 采用 FedOpt 方案进行 多场景 适配，实现了 适配 数量 自由控制，解决了在不同 场景(IID/Non-IID/cross-datacenter) 下的 多场景 适配 的问题。
+
+【原文对应 LaTeX】
+Section C.1: "our algorithm directly extends to the larger FedOpt framework"
+Section 4.1: "We show Non-IID data results in Fig. 14"
+Section 7: "worldwide cross-data center training and collaborative training"
+→ XLIV = 多场景 [IID, Non-IID, cross-datacenter等不同场景]
+→ XLV = 适配
+→ XLVI = FedOpt [Section C.1: FedOpt framework]
+→ XLVII = 数量 [workers数量M可自由控制]
+→ XLVIII = 场景 [IID/Non-IID/heterogeneous/cross-datacenter]
+
+================================================================================
+七、Section 5 Evaluation 提炼 (性能分析)
+================================================================================
+
+LVIII LIX（性能优化）
+= 性能 优化
+
+通过 LX+LXI β 来对 D 进行 LXII 分析，定位到具体的 XLII，将 LXIII α 放到新的 Ⅴ 进行 α，解决了部分 LXIV 出现 LXV 或者长时间 ⅩⅩⅦ 不进入 LXVI 的情况，大大缩短 D LXII 的时间。
+= 通过 Profiler+Flame Graph 变体 来对 分布式训练系统 进行 瓶颈 分析，定位到具体的 代码，将 耗时操作 初始化 放到新的 缓冲区 进行 初始化，解决了部分 worker 出现 崩溃(crash) 或者长时间 卡顿(stall) 不进入 收敛 的情况，大大缩短 分布式训练系统 瓶颈 的时间。
+
+【原文对应 LaTeX】
+Section 5.3: "1.37× speedup over DDP and 1.1× over Local Adam"
+Section 5.4: "≈ 2.2× training speedup over DDP"
+Table 2: Wall-clock time comparisons
+Figure 5: "activation growth" → training instability
+→ LX = Profiler [wall-clock time analysis in Section G]
+→ LXI = Flame Graph [profiling methodology]
+→ LXII = 瓶颈 [communication bottleneck]
+→ LXIII = 耗时操作 [synchronization = the expensive operation]
+→ LXIV = worker
+→ LXV = 崩溃(crash) [Section 1: "failure-prone environments"]
+→ LXVI = 收敛 [convergence, Theorem 1]
+→ ⅩⅩⅦ = 卡顿 [workers waiting for sync]
+
+通过 LXVII 结合 LXVIII 对 LXIX 进行分析，通过移除 LXX 中不需要的 LXXI，使用 LXXII LXXIII 减少 LXIX LXXIV，将 LXXI a 换成 LXXV 的 a 等操作，有效的减少了 LXXVI 的发生，减少了出现 LXXVII 的现象，提升了 mm 的 LXXVIII。
+= 通过 状态监控器(State Monitor) 结合 MAT(Memory Analyzer Tool) 对 内存泄漏 进行分析，通过移除 回调链 中不需要的 监听器(listener)，使用 弱引用 模式 减少 内存泄漏 占用，将 监听器 引用换成 静态 的引用等操作，有效的减少了 同步等待 的发生，减少了出现 吞吐量下降 的现象，提升了 系统 的 训练吞吐量。
+
+【原文对应 LaTeX】
+Figure 5.b: "activation growth" and "parameter-norm growth"
+Section B.4: "Training Instabilities of FAVG+OPT"
+Table 2: throughput comparisons
+→ LXVII = 状态监控器 [monitoring activation norms]
+→ LXVIII = 内存分析工具 [analyzing memory for optimizer states]
+→ LXIX = 内存泄漏 [Local Adam: 3x memory for 3 synced states]
+→ LXX = 回调链 [chain of UPDATE callbacks]
+→ LXXI = 监听器 [individual state sync listeners]
+→ LXXII = 弱引用 [infrequent sync = weak coupling]
+→ LXXIII = 模式 [pattern]
+→ LXXIV = 占用 [memory occupation]
+→ LXXV = 静态 [static/fixed schedule vs dynamic]
+→ LXXVI = 同步等待 [GC-like pause = sync waiting]
+→ LXXVII = 吞吐量下降 [throughput drops during sync]
+→ mm = 系统
+→ LXXVIII = 训练吞吐量 [tokens/sec, Table 5]
+
+================================================================================
+八、Section 5.3-5.4 Worker管理 + 缓存策略 提炼
+================================================================================
+
+LXXIX ⅩⅩⅨ（状态缓存）
+= 状态 缓存
+
+采用 LXXX 和 LXXXI 两级 ⅩⅩⅨ，当 LXXXII 新增时，会首先通过 LXXXIII 从 LXXX ⅩⅩⅨ 查找 LIII，如果不存在，就会往 LXXXI ⅩⅩⅨ 里面去寻找，如果也找不到，就会新建 LIII，存入 ⅩⅩⅩ ⅩⅩⅨ。当 LXXXII 删除时，会根据 LXXXIII 从 LXXX 移除对应的 LIII 到 LXXXI 里面，保证了 ⅩⅩⅩ 的使用始终维持在一个合理的 XLVII，有效防止了因 LIII 过多造成占用 ⅩⅩⅩ 过大而导致系统出现 ⅩⅩⅪ 现象，有效的降低了 ⅩⅩⅩ LXXXIV，大大提升了 LXXXV 的 bb 与 vv LXXXVI。
+= 采用 活跃 和 回收 两级 缓存，当 Worker(工作节点) 新增时，会首先通过 标识符(ID/key) 从 活跃 缓存 查找 对象(optimizer state tensor)，如果不存在，就会往 回收 缓存 里面去寻找，如果也找不到，就会新建 对象，存入 内存 缓存。当 Worker 删除时，会根据 标识符 从 活跃 移除对应的 对象 到 回收 里面，保证了 内存 的使用始终维持在一个合理的 数量，有效防止了因 对象 过多造成占用 内存 过大而导致系统出现 OOM 现象，有效的降低了 内存 碎片化，大大提升了 模型 的 稳定性 与 后台 效率。
+
+【原文对应 LaTeX】
+Section 5.3: "DES-LOC effectively initializes new workers"
+Section H: "Checkpointing vs. Periodic State Synchronization"
+Contribution 4: "DES-LOC avoids persistent local states, enabling it to seamlessly integrate new workers"
+→ LXXIX = 状态
+→ LXXX = 活跃 [active workers with current states]
+→ LXXXI = 回收 [recycled/checkpointed states]
+→ LXXXII = Worker(工作节点) [Algorithm 1: "workers m"]
+→ LXXXIII = 标识符 [worker ID m]
+→ LIII = 对象(optimizer state tensor) [s^j tensors]
+→ LXXXIV = 碎片化 [memory fragmentation]
+→ LXXXV = 模型
+→ bb = 稳定性 [training stability, Fig 5.b]
+→ LXXXVI = 效率
+
+================================================================================
+九、Section 5.4 + Contribution 4: Worker管理方案 提炼
+================================================================================
+
+LXXXII（Worker管理方案）
+= Worker(工作节点管理方案)
+
+对 LXXXVII LXXXVIII 进行了修改，通过修改 LXXXIX 中 LIII 的来源，使得 LXXXVII 支持在 XC 上层创建 LIII 并将 LIII 通过 XCI 传到 XCII 底层去 XCIII，大大提升了 LIII gg 的 LXXXVI，将 XC 上层的 LXXXVII 的 XCIV 与 XCII 底层 XCIII 建立关联，实现了 xx 度不同 XCV 下的 LXXXII dd ss xx，大大提升了 LXXXV 的 ww qq LXXXVI。
+= 对 优化器工厂(Optimizer Factory) 构造器 进行了修改，通过修改 配置文件 中 对象 的来源，使得 优化器工厂 支持在 应用(Application) 上层创建 对象 并将 对象 通过 依赖注入(DI) 传到 底层库(Core Library) 底层去 执行，大大提升了 对象 复用 的 效率，将 应用 上层的 优化器工厂 的 生命周期 与 底层库 底层 执行 建立关联，实现了 构建 度不同 进程(process) 下的 Worker 动态 切换 构建，大大提升了 模型 的 运行 时 效率。
+
+【原文对应 LaTeX】
+Section 5.3 Takeaway: "By eventually syncing all optimizer states, DES-LOC matches the robustness of Local Adam with K = max(Kx, Ku, Kv) when adding new workers/responding to system failures"
+Section 5.4: DES-LOC scales to 1.7B model
+→ LXXXVII = 优化器工厂 [the factory that creates optimizer instances]
+→ LXXXVIII = 构造器 [constructor]
+→ LXXXIX = 配置文件 [hyperparameter config: Table 3, Table 4]
+→ XC = 应用(Application) [user-facing training script]
+→ XCI = 依赖注入 [passing optimizer config down]
+→ XCII = 底层库(Core Library) [DES-LOC core library]
+→ XCIII = 执行 [execution/rendering of the training loop]
+→ XCIV = 生命周期 [optimizer lifecycle tied to training]
+→ XCV = 进程(process) [different worker processes]
+→ gg = 复用 [reusing optimizer states across worker failures]
+→ dd = 动态 [dynamic worker addition]
+→ ss = 切换 [switching/adding workers]
+→ ww = 运行
+→ qq = 时
+→ xx = 构建
+
+================================================================================
+十、Section 7 Conclusion + CI/CD 提炼
+================================================================================
+
+XCVI XCIII（自动化执行）
+= 自动化 执行
+
+基于 XCVII XCIII XCVIII 进行 XCVI XCIII，通过调用 ⅩⅩⅥ χ 将 ee 度 LXXXV 部分 υ 进行 XCVI 构建与 XCIII，解决了 ee 度 LXXXV υ XCVI xx 的问题，相较于用原生 XCIX，降低了使用难度，提高了开发速度。
+= 基于 CI/CD 执行 流水线(Pipeline) 进行 自动化 执行，通过调用 阈值 配置项 将 复杂 度 模型 部分 数据 进行 自动化 构建与 执行，解决了 复杂 度 模型 数据 自动化 构建 的问题，相较于用原生 手动脚本，降低了使用难度，提高了开发速度。
+
+【原文对应 LaTeX】
+Section 7: "As training workloads scale, we envision DES-LOC becoming the standard"
+Section I: "Choosing Synchronization Frequencies" (automated frequency selection)
+→ XCVI = 自动化
+→ XCVII = CI/CD [continuous integration for training]
+→ XCVIII = 流水线(Pipeline) [training pipeline]
+→ ee = 复杂
+→ XCIX = 手动脚本 [manual configuration]
+
+================================================================================
+【完整映射统计】
+================================================================================
+拉丁大写字母: A-Z (26个)
+希腊小写字母: α-ω (24个)
+罗马数字: Ⅰ-ⅩⅤ (15个)
+罗马数字扩展: ⅩⅥ-ⅩⅩⅫ (17个)
+罗马数字再扩展: ⅩⅩⅩⅢ-ⅩⅬ (8个)
+拉丁数字编号: XLI-XCIX (约30个)
+拼音缩写: zz,vv,kk,mm,bb,gg,dd,ss,ww,qq,ee,xx,a (13个)
+────────────────────────────────────────
+总计: 约133个映射
+每个映射均标注了对应的LaTeX源码位置(section/equation/algorithm行号)
