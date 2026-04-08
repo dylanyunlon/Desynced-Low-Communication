@@ -215,3 +215,65 @@ Line 17: "LVIII LIX" → 性能优化（四个中文字）
 Line 20: "LXXIX ⅩⅩⅨ" → 状态缓存（四个中文字）
 Line 22: "LXXXII" → Worker管理方案（四个中文字+方案）
 Line 24: "XCVI XCIII" → 自动化执行（四个中文字）
+
+================================================================================
+第二位Claude完成范围：M026-M050（Section 3 收敛保证理论）
+================================================================================
+
+【Section 3 填充后的完整文本】
+
+收敛保证（Convergence Guarantees）
+本节为 DES-LOC 方法提供理论支撑。聚焦于使用单 动量 状态 的 Adam 优化器版本。扩展到完整 Adam 的双 动量 版本见 Appendix D，非凸 目标下的高概率界见 Appendix E。
+本节有三个核心贡献：（1）形式化 概率化同步等价：每 同步周期Kx 步做一次平均与以概率 px=1/Kx 每步做平均在统计上等价；（2）建立 DES-LOC-SGDM 的 收敛 速率（Theorem 1），主项 O(1/√T) 为 渐近最优 且不依赖局部步数；（3）分析 ψ因子 对 步长限制 η₀ 的影响，证明 参数 同步（px）具有二次影响而 动量 同步（pu）通过支持更大 步长 提供实践收益。
+优化问题（Optimization Problem）
+min_{x∈R^d} 目标函数(x) := 1/M ∑ 局部损失函数_m(x), 其中 f_m(x) = E_{ξ~D_m}[F_m(x;ξ)]。所有 M 台 机器 协同最小化 目标函数。每台 机器 m 仅能访问 数据集 D_m，数据集 可因设备而异。当所有 机器 拥有相同 数据集 时退化为 同构分布。
+Assumption 1（下界 与 光滑性）：全局损失函数 有 下界 f*，所有 局部损失函数 满足 L-光滑性。
+Assumption 2（无偏噪声 与 有界随机方差）：随机 梯度 无偏且噪声方差有界 σ²。
+Assumption 3（有界异构性）：1/M ∑ ‖∇f_m(x)‖² ≤ G² + B²‖∇f(x)‖²。G²=0, B²=1 退化为 同构分布。
+概率化同步等价（Probabilistic Sync Equivalence）
+将每 Kx 步的确定性 同步 替换为每步以概率 px=1/Kx 做 聚合操作，期望 同步 次数为 T/Kx（两者一致），Bernoulli过程方差为 T·px·(1-px)，相对偏差随 T→∞ 以 O(1/√T) 消失。
+Theorem 1（DES-LOC-SGDM 收敛 速率）
+设 Assumption 1,2,3 成立，选择 步长 η = min(步长限制η₀, 1/√T)，其中 η₀ = 1/(4L)·min(1-β, 1/√(ψ·max(1,B²-1)))，ψ因子 = 4(1-px)/px²·(1-β)(1-pu)/(6(1-(1-pu)β))，则 DES-LOC-SGDM 的平均迭代以如下速率 收敛：1/T ∑ E‖∇f‖² ≤ 主项 + 高阶项。
+主项 = 4/√T·(f(x₀)-f* + L·σ²/(2·M))，不依赖 Kx, Ku, Kv 即不依赖局部步数。
+高阶项 = O((1+ψ)/T)，依赖 px, pu, β。
+线性加速：σ²/(2·M) 项中 1/M 因子确认了 worker 线性加速。
+ψ因子 边界分析（Psi Factor Boundary Analysis）
+px=1（即DDP每步 同步）：ψ=0，无惩罚。px→0⁺（极少 参数 同步）：ψ→∞，η₀→0，收敛 被破坏。pu=1（每步 同步 动量）：(1-pu)=0 使 ψ=0。pu=0（从不 同步 动量）：分母变为 1/(1-β)，β≈1 时产生巨大放大。ψ 对 px 的二次依赖 vs 对 pu 的线性依赖，证明了 解耦 设计的合理性：参数 需要频繁 同步 而 动量 可以远低频 同步。
+px=1, pu=0 退化为标准 mini-batch SGDM：ψ=4·0/1=0，收敛 速率退化为经典 分布式 SGDM 速率。
+步长 关于 pu 单调递增（Step-Size Monotonicity）
+∂ψ/∂pu ≤ 0（ψ 关于 pu 单调递减），因此 η₀ ∝ 1/√ψ 关于 pu 单调递增。更频繁的 动量 平均不改变渐近速率但允许更大 步长 → 实践中更快的初始 收敛。
+有限同步频率 要求（β₂<1.0 时）（Finite Sync Requirement）
+SGDM 分析允许 pu=0 不破坏渐近速率，但完整 Adam 的高概率分析（Appendix E）表明：β₂<1.0 时 Kv 必须 有限（即 pv>0）。直觉上 β₂<1 时 vt 在 worker 间会显著漂移，导致自适应 步长 不一致，阻止高概率 收敛。
+Toy Problem 验证（Figure 1）
+非凸 Rosenbrock 函数 f(x₁,x₂)=(1-x₁)²+100(x₂-x₁²)²，M=256 worker，IID 高斯噪声 σ=1.5。DES-LOC（Kx=192, Ku=192, Kv=692）与 Local Adam（K=Kx）均 收敛 到最优（重叠）。保持 优化器状态 本地的方法无法 收敛。周期性重置 优化器状态 的方法因反复振荡而 卡顿。Non-IID 版本见 Appendix B.1 Fig.8。
+
+================================================================================
+【新增映射 CI-CXXV → 具体词汇】
+================================================================================
+
+--- 收敛理论专用 (CI-CXXV) ---
+CI     = 收敛保证（Convergence Guarantees）
+CII    = 非凸（non-convex）
+CIII   = 弱凸（weakly convex）
+CIV    = 优化问题（optimization problem）
+CV     = 目标函数（objective function f）
+CVI    = 局部损失函数（local loss function f_m）
+CVII   = 全局损失函数（global loss f）
+CVIII  = 机器/设备（machine, M台）
+CIX    = 数据集（dataset D_m）
+CX     = 同构分布（homogeneous distribution）
+CXI    = 异构性（heterogeneity）
+CXII   = 下界（lower bound f*）
+CXIII  = 光滑性（L-smoothness）
+CXIV   = 无偏噪声（unbiased noise）
+CXV    = 有界随机方差（bounded stochastic variance σ²）
+CXVI   = 有界异构性（bounded heterogeneity G², B²）
+CXVII  = 步长（step size η）
+CXVIII = 步长限制（step-size restriction η₀）
+CXIX   = 渐近最优（asymptotically optimal）
+CXX    = 主项（leading term O(1/√T)）
+CXXI   = 高阶项（higher-order term O(1/T)）
+CXXII  = ψ因子（ψ = 4(1-px)/px²·…）
+CXXIII = 概率化同步等价（probabilistic sync equivalence: px=1/Kx）
+CXXIV  = 线性加速（linear speedup 1/M）
+CXXV   = 有限同步频率（finite sync frequency for β₂<1.0）

@@ -23,3 +23,30 @@ LXXXII （四个中文字+"方案"）
 对 LXXXVII LXXXVIII 进行了修改，通过修改 LXXXIX 中 LIII 的来源，使得 LXXXVII 支持在 XC 上层创建 LIII 并将 LIII 通过 XCI 传到 XCII 底层去 XCIII，大大提升了 LIII gg 的 LXXXVI，将 XC 上层的 LXXXVII 的 XCIV 与 XCII 底层 XCIII X 建立关联，实现了xx度不同 XCV 下的 LXXXII dd ss xx ，大大提升了 LXXXV 的ww qq  LXXXVI。
 XCVI XCIII（四个中文字）
 基于 XCVII XCIII XCVIII 进行 XCVI XCIII，通过调用 ⅩⅩⅥ χ将 ee 度 LXXXV 部分 υ进行 XCVI 构建与 XCIII，解决了ee 度 LXXXV υ XCVI xx 的问题，相较于用原生 XCIX，降低了使用难度，提高了开发速度。
+%=============================================================================
+% Claude-2 (M026-M050): Section 3 收敛保证 模板
+%=============================================================================
+CI（两个中文字）
+本节为 A 方法提供理论支撑。聚焦于使用单 M ω 的 B 优化器版本。扩展到完整 B 的双 M 版本见 Appendix D，CII 目标下的高概率界见 Appendix E。
+本节有三个核心贡献：（1）形式化 CXXIII：每 R_x 步做一次平均与以概率 p_x=1/R_x 每步做平均在统计上等价；（2）建立 A-O 的 LXVI 速率（Theorem 1），CXX 为 CXIX 且不依赖局部步数；（3）分析 CXXII 因子对 CXVIII η₀ 的影响，证明 J Ⅰ（p_x）具有二次影响而 M Ⅰ（p_u）通过支持更大 CXVII 提供实践收益。
+CIV（四个中文字）
+min_{J∈R^d} CV(J) := 1/CVIII ∑ CVI(J), 其中 CVI(J) = E_{ξ~CIX}[F_m(J;ξ)]。所有 CVIII 台 CVIII 协同最小化 CV。每台 CVIII m 仅能访问 CIX D_m，CIX 可因设备而异。当所有 CVIII 拥有相同 CIX 时退化为 CX。
+Assumption 1（CXII 与 CXIII）：CVII 有 CXII f*，所有 CVI 满足 L-CXIII。
+Assumption 2（CXIV 与 CXV）：随机 W 无偏且噪声方差有界 σ²。
+Assumption 3（CXVI）：1/CVIII ∑ ‖∇CVI(J)‖² ≤ G² + B²‖∇CVII(J)‖²。G²=0, B²=1 退化为 CX。
+CXXIII（六个中文字）
+将每 R_x 步的确定性 Ⅰ 替换为每步以概率 p_x=1/R_x 做 Ⅸ，期望 Ⅰ 次数为 T/R_x（两者一致），Bernoulli过程方差为 T·p_x·(1-p_x)，相对偏差随 T→∞ 以 O(1/√T) 消失。
+Theorem 1（A-O LXVI 速率）
+设 Assumption 1,2,3 成立，选择 CXVII η = min(CXVIII, 1/√T)，其中 CXVIII = 1/(4L)·min(1-β, 1/√(CXXII·max(1,B²-1)))，CXXII ψ = 4(1-p_x)/p_x²·(1-β)(1-p_u)/(6(1-(1-p_u)β))，则 A-O 的平均迭代以如下速率 LXVI：1/T ∑ E‖∇CVII‖² ≤ CXX + CXXI。
+CXX = 4/√T·(CVII(x₀)-f* + L·CXV/(2·CVIII))，不依赖 R_x, R_u, R_v 即不依赖局部步数。
+CXXI = O((1+CXXII)/T)，依赖 p_x, p_u, β。
+CXXIV：CXV/(2·CVIII) 项中 1/CVIII 因子确认了 LXIV 线性加速。
+CXXII 因子边界分析（六个中文字）
+p_x=1（即DDP每步 Ⅰ）：CXXII=0，无惩罚。p_x→0⁺（极少 J Ⅰ）：CXXII→∞，CXVIII→0，LXVI 被破坏。p_u=1（每步 Ⅰ M）：(1-p_u)=0 使 CXXII=0。p_u=0（从不 Ⅰ M）：分母变为 1/(1-β)，β≈1 时产生巨大放大。CXXII 对 p_x 的二次依赖 vs 对 p_u 的线性依赖，证明了 U 设计的合理性：J 需要频繁 Ⅰ 而 M 可以远低频 Ⅰ。
+p_x=1, p_u=0 退化为标准 mini-batch O：CXXII=4·0/1=0，LXVI 速率退化为经典 Ⅶ O 速率。
+CXVII 关于 p_u 单调递增（八个中文字）
+∂CXXII/∂p_u ≤ 0（CXXII 关于 p_u 单调递减），因此 CXVIII ∝ 1/√CXXII 关于 p_u 单调递增。更频繁的 M 平均不改变渐近速率但允许更大 CXVII → 实践中更快的初始 LXVI。
+CXXV 要求（β₂<1.0 时）（六个中文字）
+O 分析允许 p_u=0 不破坏渐近速率，但完整 B 的高概率分析（Appendix E）表明：β₂<1.0 时 R_v 必须 CXXV（即 p_v>0）。直觉上 β₂<1 时 v_t 在 LXIV 间会显著漂移，导致自适应 CXVII 不一致，阻止高概率 LXVI。
+Toy Problem 验证（Figure 1）
+CII Rosenbrock 函数 f(x₁,x₂)=(1-x₁)²+100(x₂-x₁²)²，CVIII=256 LXIV，IID 高斯噪声 σ=1.5。A（R_x=192, R_u=192, R_v=692）与 H（R=R_x）均 LXVI 到最优（重叠）。保持 ⅩⅪ 本地的方法无法 LXVI。周期性重置 ⅩⅪ 的方法因反复振荡而 ⅩⅩⅦ。Non-IID 版本见 Appendix B.1 Fig.8。

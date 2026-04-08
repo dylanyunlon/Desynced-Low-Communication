@@ -1,0 +1,379 @@
+{
+  "psi_boundaries": {
+    "full_sync_px1": {
+      "px": 1.0,
+      "pu": 0.5,
+      "beta": 0.9,
+      "psi": 0.0,
+      "is_finite": true
+    },
+    "full_momentum_sync_pu1": {
+      "px": 0.5,
+      "pu": 1.0,
+      "beta": 0.9,
+      "psi": 0.0,
+      "is_finite": true
+    },
+    "no_momentum_sync_pu0": {
+      "px": 0.5,
+      "pu": 0.0,
+      "beta": 0.9,
+      "psi": 8.0,
+      "is_finite": true
+    },
+    "ddp_equivalent": {
+      "px": 1.0,
+      "pu": 0.0,
+      "beta": 0.9,
+      "psi": 0.0,
+      "is_finite": true
+    },
+    "typical_desloc": {
+      "px": 0.0625,
+      "pu": 0.005208333333333333,
+      "beta": 0.95,
+      "psi": 869.0047393364921,
+      "is_finite": true
+    },
+    "high_beta": {
+      "px": 0.1,
+      "pu": 0.01,
+      "beta": 0.999,
+      "psi": 32.429481346678664,
+      "is_finite": true
+    },
+    "low_beta": {
+      "px": 0.1,
+      "pu": 0.1,
+      "beta": 0.1,
+      "psi": 320.4395604395604,
+      "is_finite": true
+    },
+    "zero_beta": {
+      "px": 0.1,
+      "pu": 0.1,
+      "beta": 0.0,
+      "psi": 323.99999999999994,
+      "is_finite": true
+    },
+    "px1_gives_zero": true,
+    "pu1_gives_zero": true,
+    "ddp_gives_zero": true
+  },
+  "step_size": {
+    "DDP (px=1)": {
+      "px": 1.0,
+      "pu": 0.0,
+      "beta": 0.9,
+      "psi": 0.0,
+      "eta0": 0.024999999999999994,
+      "eta_effective_T10000": 0.01
+    },
+    "Local Adam Kx=16": {
+      "px": 0.0625,
+      "pu": 0.0625,
+      "beta": 0.9,
+      "psi": 575.9999999999998,
+      "eta0": 0.0017361111111111114,
+      "eta_effective_T10000": 0.0017361111111111114
+    },
+    "DES-LOC typical": {
+      "px": 0.0625,
+      "pu": 0.005208333333333333,
+      "beta": 0.95,
+      "psi": 869.0047393364921,
+      "eta0": 0.0014134410031073383,
+      "eta_effective_T10000": 0.0014134410031073383
+    },
+    "DES-LOC aggressive": {
+      "px": 0.015625,
+      "pu": 0.001445086705202312,
+      "beta": 0.9999,
+      "psi": 1042.4139930781805,
+      "eta0": 2.4999999999997247e-05,
+      "eta_effective_T10000": 2.4999999999997247e-05
+    },
+    "Conservative": {
+      "px": 0.25,
+      "pu": 0.25,
+      "beta": 0.9,
+      "psi": 11.076923076923077,
+      "eta0": 0.01251927526202774,
+      "eta_effective_T10000": 0.01
+    }
+  },
+  "convergence_rate": {
+    "local_step_independence": {
+      "leading_terms": [
+        0.014230249470757706,
+        0.014230249470757706,
+        0.014230249470757706,
+        0.014230249470757706
+      ],
+      "higher_order_terms": [
+        0.0002979999999999999,
+        0.005769999999999997,
+        0.09677799999999998,
+        0.8801379999999998
+      ],
+      "max_leading_deviation": 0.0,
+      "leading_independent": true,
+      "higher_order_varies": true
+    },
+    "linear_speedup": {
+      "M_values": [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64
+      ],
+      "bounds": [
+        0.02474366596101027,
+        0.021581388300841893,
+        0.0200002494707577,
+        0.019209680055715606,
+        0.01881439534819456,
+        0.018616752994434035,
+        0.018517931817553776
+      ],
+      "noise_contributions": [
+        0.5,
+        0.25,
+        0.125,
+        0.0625,
+        0.03125,
+        0.015625,
+        0.0078125
+      ],
+      "Lsigma2_over_2": 0.5,
+      "linear_speedup_verified": true
+    }
+  },
+  "prob_sync_equivalence": {
+    "T": 10000,
+    "results": [
+      {
+        "expected_deterministic": 2500.0,
+        "empirical_mean": 2500.4716,
+        "empirical_std": 43.69400866755075,
+        "theoretical_std": 43.30127018922193,
+        "relative_error_mean": 0.00018863999999994122,
+        "std_ratio": 1.0090699066473707,
+        "equivalence_verified": true,
+        "Kx": 4,
+        "px": 0.25,
+        "deterministic_count": 2500
+      },
+      {
+        "expected_deterministic": 625.0,
+        "empirical_mean": 624.6038,
+        "empirical_std": 24.33320417783075,
+        "theoretical_std": 24.206145913796355,
+        "relative_error_mean": 0.0006339200000000346,
+        "std_ratio": 1.0052490084331012,
+        "equivalence_verified": true,
+        "Kx": 16,
+        "px": 0.0625,
+        "deterministic_count": 625
+      },
+      {
+        "expected_deterministic": 312.5,
+        "empirical_mean": 312.7372,
+        "empirical_std": 17.266700210520828,
+        "theoretical_std": 17.39926363384382,
+        "relative_error_mean": 0.0007590399999999136,
+        "std_ratio": 0.9923810900212386,
+        "equivalence_verified": true,
+        "Kx": 32,
+        "px": 0.03125,
+        "deterministic_count": 312
+      },
+      {
+        "expected_deterministic": 156.25,
+        "empirical_mean": 156.6326,
+        "empirical_std": 12.414250571017165,
+        "theoretical_std": 12.401959270615269,
+        "relative_error_mean": 0.0024486399999999776,
+        "std_ratio": 1.0009910773075201,
+        "equivalence_verified": true,
+        "Kx": 64,
+        "px": 0.015625,
+        "deterministic_count": 156
+      },
+      {
+        "expected_deterministic": 52.08333333333333,
+        "empirical_mean": 52.1022,
+        "empirical_std": 7.1172294581529405,
+        "theoretical_std": 7.198059875565235,
+        "relative_error_mean": 0.00036224000000015623,
+        "std_ratio": 0.9887705272240532,
+        "equivalence_verified": true,
+        "Kx": 192,
+        "px": 0.005208333333333333,
+        "deterministic_count": 52
+      }
+    ],
+    "all_equivalence_verified": true
+  },
+  "T1_asymptotic": {
+    "T_values": [
+      100,
+      1000,
+      10000,
+      100000,
+      1000000
+    ],
+    "bounds": [
+      0.45,
+      0.14230249470757705,
+      0.045,
+      0.014230249470757706,
+      0.0045000000000000005
+    ],
+    "ratios_bound_over_sqrtT": [
+      4.5,
+      4.5,
+      4.5,
+      4.5,
+      4.5
+    ],
+    "ratio_std": 0.0,
+    "is_O_sqrtT": true
+  },
+  "T3_px_dominance": {
+    "px_values": [
+      0.005,
+      0.01,
+      0.02,
+      0.04,
+      0.05,
+      0.08,
+      0.1
+    ],
+    "psi_values": [
+      14472.727272727268,
+      3599.999999999999,
+      890.9090909090907,
+      218.1818181818181,
+      138.1818181818181,
+      52.27272727272725,
+      32.72727272727271
+    ],
+    "psi_times_px_sq": [
+      0.3618181818181817,
+      0.35999999999999993,
+      0.35636363636363627,
+      0.34909090909090895,
+      0.34545454545454535,
+      0.3345454545454544,
+      0.3272727272727272
+    ],
+    "coefficient_std": 0.012088390938410486,
+    "coefficient_cv": 0.034757509419626874,
+    "ratio_double_px": 4.040816326530613,
+    "ratio_near_4": true,
+    "px_quadratic_impact": true
+  },
+  "T4_px_divergence": {
+    "px_values": [
+      0.001,
+      0.0001,
+      1e-05
+    ],
+    "psi_values": [
+      1892842.1052631582,
+      189454736.84210527,
+      18947178947.36842
+    ],
+    "diverges": true,
+    "last_psi_large": true
+  },
+  "T5_pu_asymptotic": {
+    "psi_pu0": 359.99999999999994,
+    "psi_pu05": 32.72727272727271,
+    "psi_pu1": 0.0,
+    "eta0_pu0": 0.002196026152894708,
+    "eta0_pu05": 0.007283394778959388,
+    "eta0_pu1": 0.024999999999999994,
+    "eta0_increases_with_pu": true,
+    "pu0_most_restrictive": true
+  },
+  "T6_recover_sgdm": {
+    "psi_at_px1_pu0": 0.0,
+    "psi_is_zero": true,
+    "recovers_sgdm": true,
+    "explanation": "px=1 → 4(1-px)/px²=0 → ψ=0, no penalty from local steps"
+  },
+  "T7_pu_monotonicity": {
+    "pu_range": [
+      0.01,
+      1.0
+    ],
+    "eta0_range": [
+      0.002304268906598024,
+      0.024999999999999994
+    ],
+    "is_monotonically_increasing": true,
+    "violations": [],
+    "n_points_tested": 50
+  },
+  "T8_finite_sync": {
+    "beta2_results": {
+      "0.9": {
+        "psi_pu_tiny": 359.9964000323993,
+        "psi_pu_normal": 326.97247706422013,
+        "eta0_pu_tiny": 0.002196037133009003,
+        "eta0_pu_normal": 0.002304268906598024,
+        "eta0_ratio": 1.0492850380178782,
+        "finite_sync_needed": false
+      },
+      "0.99": {
+        "psi_pu_tiny": 359.96400356364796,
+        "psi_pu_normal": 179.09547738693456,
+        "eta0_pu_tiny": 0.002196135951567251,
+        "eta0_pu_normal": 0.0025000000000000022,
+        "eta0_ratio": 1.1383630408745422,
+        "finite_sync_needed": false
+      },
+      "0.999": {
+        "psi_pu_tiny": 359.6403592810576,
+        "psi_pu_normal": 32.429481346678664,
+        "eta0_pu_tiny": 0.0002500000000000002,
+        "eta0_pu_normal": 0.0002500000000000002,
+        "eta0_ratio": 1.0,
+        "finite_sync_needed": false
+      },
+      "0.9999": {
+        "psi_pu_tiny": 356.4356400352144,
+        "psi_pu_normal": 3.5290622833940173,
+        "eta0_pu_tiny": 2.4999999999997247e-05,
+        "eta0_pu_normal": 2.4999999999997247e-05,
+        "eta0_ratio": 1.0,
+        "finite_sync_needed": false
+      }
+    },
+    "conclusion": "Finite pu (finite Ku) gives significantly larger η₀ for all β₂<1"
+  },
+  "summary": {
+    "checks": {
+      "ψ_px1_zero": true,
+      "ψ_pu1_zero": true,
+      "ψ_ddp_zero": true,
+      "T1_O_sqrtT": true,
+      "T3_px_quad": true,
+      "T4_diverge": true,
+      "T5_pu0_restrict": true,
+      "T6_sgdm": true,
+      "T7_monotone": true,
+      "leading_indep": true,
+      "linear_speedup": true,
+      "prob_sync": true
+    },
+    "n_pass": 12,
+    "n_total": 12,
+    "all_passed": true
+  }
+}

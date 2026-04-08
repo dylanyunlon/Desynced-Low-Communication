@@ -7,6 +7,36 @@ PDF总页数：54页
 论文结构：正文16页 + 附录38页 (Section A-M)
 
 ================================================================================
+🔴 强制规范（所有后续Claude必须遵守）
+================================================================================
+
+规范1: tex必须与PDF严格1:1
+  - des_loc_reconstructed.tex中的每个段落必须对应PDF中的一个段落
+  - 不得新增Remark、Table、enumerate等PDF中不存在的块
+  - 不得拆分或重组PDF原文段落
+  - Figure/Table的位置必须匹配PDF页面布局
+  - 如需添加注释说明, 用LaTeX %注释行, 不要用\begin{remark}
+
+规范2: 公式必须逐符号匹配PDF
+  - 修改公式前必须渲染PDF对应页面(pdftoppm), 逐符号核对
+  - nougat OCR输出有错误, 不能直接信任, 必须与PDF图片交叉验证
+  - 已知nougat错误: Eq.(4)中(1-pu)被OCR为(1-px)
+
+规范3: 链式patch依赖
+  - Claude-N的patch必须基于Claude-(N-1)的commit (git am后的HEAD)
+  - 不得基于原始HEAD做patch, 否则行号偏移导致冲突
+  - patch作者统一为: dylanyunlong <dylanyunlong@gmail.com>
+
+规范4: 模板提炼在独立文件
+  - tex文件只做1:1重建, 模板提炼写在 template_extraction_sectionX.txt
+  - template.txt追加时保持与Claude-1相同的行式格式(每行1段落)
+  - mapping_database.json新增映射时避免与已有符号语义冲突
+
+规范5: 验证代码(src/)独立于tex
+  - src/下的Python代码用于数值验证, 不影响tex编译
+  - 验证代码中的公式必须与PDF原始公式一致, 不是tex中的公式
+
+================================================================================
 开发进度分配（按论文Mxxx标记）
 ================================================================================
 
@@ -19,14 +49,19 @@ PDF总页数：54页
     - 生成开发计划文件
   对应论文: Title, Abstract, Section 1 (Introduction), Section 2 (DES-LOC Algorithm)
   状态: ✅ 已完成
+  ⚠️ 已知问题: Eq.(4) ψ公式中因子6位置错误, 已由Claude-2修复
 
 第二位Claude 完成: M026-M050
   范围: Section 3 收敛保证理论部分
   内容:
-    - Theorem 1 (DES-LOC-SGDM收敛率) 的代码实现/验证
-    - 步长限制公式 η0 的数值验证
-    - 概率化同步 px, pu 的等价性验证
+    - des_loc_reconstructed.tex Section 3 严格1:1重写 (修复ψ公式BUG-1)
+    - Eq.(4): 因子6从ψ定义移回η₀, 匹配PDF原始公式
+    - Figure 1 位置修正 (匹配PDF page 4 layout)
+    - 删除所有非PDF内容(Remark/Table/enumerate)
+    - convergence_verifier.py 公式修正 + 12/12测试
+    - 制定后续Claude强制规范(规范1-5)
   对应论文: Section 3 (Convergence Guarantees)
+  状态: ✅ 已完成
 
 第三位Claude 完成: M051-M075
   范围: Section 4 实验设计部分

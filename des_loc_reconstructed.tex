@@ -1,6 +1,7 @@
 % DES-LOC: Desynced Low Communication Adaptive Optimizers for Foundation Models
 % Reconstructed from 12473_DES_LOC_Desynced_Low_Com.pdf
 % Claude-1 (M001-M025): Sections 1-7 main body LaTeX reconstruction
+% Claude-2 (M026-M050): Section 3 Convergence Guarantees — strict 1:1 PDF match, ψ formula fix
 % Original: Published as a conference paper at ICLR 2026
 
 \documentclass{article}
@@ -199,6 +200,7 @@ and Local Adam converge under noisy gradients, while prior heuristic methods~\ci
 \section{Convergence Guarantees for DES-LOC}
 \label{sec:convergence}
 %=============================================================================
+% Claude-2 (M026-M050): Strict 1:1 with PDF pages 3-5. ψ formula matches PDF Eq.(4).
 
 This section provides theoretical support for the proposed DES-LOC approach. We focus on a version
 of the Adam optimizer that uses only a single momentum state. Extensions to the full Adam optimizer
@@ -216,6 +218,20 @@ the homogeneous distribution case when all machines have the same dataset $\math
 and minimize the same loss $f_1(x) = f_2(x) = \cdots = f_m(x) = f(x)$. We assume each machine $m$
 computes mini-batch stochastic gradients corresponding to randomly selected samples $\xi \sim \mathcal{D}_m$ from
 dataset $\mathcal{D}_m$. We further use the following technical assumptions on the problem structure.
+
+% Figure 1: PDF page 4 top — placed here to match PDF layout (between Section 2 Toy Example and Assumptions)
+\begin{figure}[t]
+\centering
+% [Figure 1 graphic from original PDF]
+\caption{We present: (left) the distance to the optimum and (right) a 2-D contour of a toy problem
+where DES-LOC ($K_x = 192$, $K_u = 192$, $K_v = 692$) and Local Adam ($K = K_x$) both converge to the
+optimum (overlapping). Methods keeping optimizer states local (\protect\rule{6pt}{6pt}) fail to converge.
+Periodically resetting states (\protect\rule{6pt}{6pt}) similarly stalls due to repeated oscillations.
+We optimize the non-convex function $f(x_1, x_2) = (1-x_1)^2 + 100(x_2 - x_1^2)^2$ with $M = 256$
+workers and IID Gaussian noise ($\sigma = 1.5$). We show an example of such a toy problem on Non-IID
+data in Fig.~8.}
+\label{fig:toy}
+\end{figure}
 
 \begin{assumption}[Lower bound and smoothness]
 \label{asm:smooth}
@@ -254,23 +270,24 @@ of SGDM optimizer under such probabilistic and decoupled synchronization:
 \label{thm:sgdm}
 Let Assumptions~\ref{asm:smooth},~\ref{asm:noise} and~\ref{asm:heterogeneity} hold. Then, choosing the step size $\eta = \min(\eta_0, \frac{1}{\sqrt{T}})$ with
 \begin{equation}
-\eta_0 \stackrel{\text{def}}{=} \frac{1}{4L} \min\left(1 - \beta, \frac{1}{\sqrt{\psi \max(1, B^2 - 1)}}\right), \quad \text{where } \psi \stackrel{\text{def}}{=} \frac{4(1-p_x)}{p_x^2} \cdot \frac{(1-\beta)(1-p_u)}{6(1-(1-p_u)\beta)},
+%%% BUG-1 FIX: 因子6在η₀中(1/(6√…)), 不在ψ中. 严格匹配PDF page 4 Eq.(4).
+\eta_0 \stackrel{\text{def}}{=} \frac{1}{4L} \min\left(1 - \beta, \frac{1}{6\sqrt{\psi \max(1, B^2 - 1)}}\right), \quad \text{where } \psi \stackrel{\text{def}}{=} \frac{4(1-p_x)}{p_x^2} \cdot \frac{(1-\beta)(1-p_u)}{1-(1-p_u)\beta},
 \label{eq:step_size}
 \end{equation}
 the average iterates $\bar{x}_t = \mathbb{E}_m[x^m_t]$ of DES-LOC-SGDM converge with the following rate:
 \begin{equation}
-\frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\bar{x}_t)\|^2 \leq \frac{4}{\sqrt{T}} \left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right) + O\left(\frac{1+\psi}{T}\right).
+\frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\bar{x}_t)\|^2 \leq \frac{4}{\sqrt{T}} \left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right) + \mathcal{O}\left(\frac{1+\psi}{T}\right).
 \label{eq:rate}
 \end{equation}
 \end{theorem}
 
 We now discuss the convergence result and its implications. The obtained rate~\eqref{eq:rate} is asymptotically
-optimal for this setup~\citep{arjevani2023lower}. Notably, the leading term $O(\frac{1}{\sqrt{T}})$ is unaffected by the
+optimal for this setup~\citep{arjevani2023lower}. Notably, the leading term $\mathcal{O}(\frac{1}{\sqrt{T}})$ is unaffected by the
 number of local steps. Interestingly, probabilities $p_x$, $p_u$, and the momentum parameter $\beta$ appear in
-the higher-order term $O(\frac{1}{T})$, and thus have a limited impact on asymptotic convergence speed.
+the higher-order term $\mathcal{O}(\frac{1}{T})$, and thus have a limited impact on asymptotic convergence speed.
 
 Regarding state synchronization, it is evident from~\eqref{eq:step_size} that model synchronization has a greater
-impact on convergence due to the dependence $\psi = O(\frac{1}{p_x^2})$. With vanishing $p_x$, the $\psi$ term becomes
+impact on convergence due to the dependence $\psi = \mathcal{O}(\frac{1}{p_x^2})$. With vanishing $p_x$, the $\psi$ term becomes
 unbounded and breaks the rate. For optimizer states, it seems that momentum averaging can be
 turned off ($p_u = 0$) without affecting the asymptotic behavior of the rate. Setting $p_x = 1$ and $p_u = 0$
 recovers standard mini-batch SGDM~\citep{liu2020improved}. However, the $\psi$ term also appears in the step-size restriction~\eqref{eq:step_size}. As $p_u \to 0$, $\frac{(1-p_u)}{1-(1-p_u)\beta} \to \frac{1}{1-\beta}$. This imposes the most severe restriction on the

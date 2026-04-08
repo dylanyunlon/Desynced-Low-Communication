@@ -159,7 +159,35 @@
     "ww": "运行",
     "qq": "时",
     "ee": "复杂",
-    "xx": "构建/构造"
+    "xx": "构建/构造",
+
+    "_separator_claude2": "========== Claude-2 (M026-M050) 新增: Section 3 收敛理论 ==========",
+    "CI": "收敛保证（Convergence Guarantees）",
+    "CII": "非凸（non-convex）",
+    "CIII": "弱凸（weakly convex）",
+    "CIV": "优化问题（optimization problem）",
+    "CV": "目标函数（objective function f）",
+    "CVI": "局部损失函数（local loss function f_m）",
+    "CVII": "全局损失函数（global loss f）",
+    "CVIII": "机器/设备（machine, M台）",
+    "CIX": "数据集（dataset D_m）",
+    "CX": "同构分布（homogeneous distribution）",
+    "CXI": "异构性（heterogeneity）",
+    "CXII": "下界（lower bound f*）",
+    "CXIII": "光滑性（L-smoothness）",
+    "CXIV": "无偏噪声（unbiased noise）",
+    "CXV": "有界随机方差（bounded stochastic variance σ²）",
+    "CXVI": "有界异构性（bounded heterogeneity G², B²）",
+    "CXVII": "步长（step size η）",
+    "CXVIII": "步长限制（step-size restriction η₀）",
+    "CXIX": "渐近最优（asymptotically optimal）",
+    "CXX": "主项（leading term O(1/√T)）",
+    "CXXI": "高阶项（higher-order term O(1/T)）",
+    "CXXII": "ψ因子（ψ = 4(1-px)/px²·(1-β)(1-pu)/(6(1-(1-pu)β))）",
+    "CXXIII": "概率化同步等价（probabilistic sync equivalence: px=1/Kx）",
+    "CXXIV": "线性加速（linear speedup 1/M）",
+    "CXXV": "有限同步频率（finite sync frequency for β₂<1.0）"
   },
-  "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。"
+  "claude_instances": ["第一位Claude (M001-M025)", "第二位Claude (M026-M050)"],
+  "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。"
 }

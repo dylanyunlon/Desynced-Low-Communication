@@ -1,0 +1,182 @@
+================================================================================
+DES-LOC 论文模板化提炼 — Section 3: Convergence Guarantees
+源文件: des_loc_reconstructed.tex (lines 199-283)
+第二位Claude (M026-M050) 完成范围: Section 3 收敛保证理论
+================================================================================
+
+【新增映射表 — 收敛理论专用】
+每行格式: "符号 = 论文中的具体词/短语 (出自LaTeX哪一行/哪个section)"
+本次新增 CI-CXXV (收敛理论专用罗马数字)
+
+================================================================================
+新增映射 (CI - CXXV)
+================================================================================
+
+CI     = 收敛保证 (Convergence Guarantees)
+CII    = 非凸 (non-convex)
+CIII   = 弱凸 (weakly convex)
+CIV    = 优化问题 (optimization problem)
+CV     = 目标函数 (objective function)
+CVI    = 局部损失函数 (local loss function f_m)
+CVII   = 全局损失函数 (global loss f)
+CVIII  = 机器/设备 (machine)
+CIX    = 数据集 (dataset D_m)
+CX     = 同构分布 (homogeneous distribution)
+CXI    = 异构性 (heterogeneity)
+CXII   = 下界 (lower bound f*)
+CXIII  = 光滑性 (L-smoothness)
+CXIV   = 无偏噪声 (unbiased noise)
+CXV    = 有界随机方差 (bounded stochastic variance σ²)
+CXVI   = 有界异构性 (bounded heterogeneity G², B²)
+CXVII  = 步长 (step size η)
+CXVIII = 步长限制 (step-size restriction η₀)
+CXIX   = 渐近最优 (asymptotically optimal)
+CXX    = 主项 (leading term O(1/√T))
+CXXI   = 高阶项 (higher-order term O(1/T))
+CXXII  = ψ因子 (ψ = 4(1-px)/px² · (1-β)(1-pu)/(6(1-(1-pu)β)))
+CXXIII = 概率化同步等价 (probabilistic sync equivalence: px=1/Kx)
+CXXIV  = 线性加速 (linear speedup 1/M)
+CXXV   = 有限同步频率 (finite sync frequency for β₂<1.0)
+
+================================================================================
+Section 3 模板化提炼（完整逐段）
+================================================================================
+
+【段落 3.0: Section 3 标题与引言】
+
+CI (收敛保证)
+本节为 A 方法提供理论支撑。聚焦于使用单 M ω 的 B 优化器版本。扩展到完整 B 的双 M 版本见 Appendix D，CII 目标下的高概率界见 Appendix E。
+
+= 收敛保证 (Convergence Guarantees)
+本节为 DES-LOC 方法提供理论支撑。聚焦于使用单动量状态的 Adam 优化器版本。
+扩展到完整 Adam 的双动量版本见 Appendix D，非凸目标下的高概率界见 Appendix E。
+
+【原文对应 LaTeX (lines 199-205)】
+\section{Convergence Guarantees for DES-LOC}
+"We focus on a version of the Adam optimizer that uses only a single momentum state.
+Extensions to the full Adam optimizer with both momenta are available in Section D
+with high-probability bounds shown in Section E."
+→ CI = 收敛保证
+
+---
+
+【段落 3.1: 优化问题定义 Eq.(3)】
+
+形式上，考虑如下 CIV：
+min_{J ∈ R^d} CV(J) := 1/CVIII ∑ CVI(J), 其中 CVI(J) = E_{ξ~CIX}[F_m(J;ξ)]
+
+= 形式上，考虑如下 优化问题：
+min_{x ∈ R^d} 目标函数(x) := 1/M ∑ 局部损失函数_m(x), 其中 f_m(x) = E_{ξ~D_m}[F_m(x;ξ)]
+
+所有 CVIII 台 CVIII 协同最小化 CV。一般地，每台 CVIII m 仅能访问 CIX D_m，
+CIX 可因设备而异。当所有 CVIII 拥有相同 CIX 时，退化为 CX 情形。
+
+= 所有 M 台机器协同最小化目标函数。一般地，每台机器 m 仅能访问数据集 D_m，
+数据集可因设备而异。当所有机器拥有相同数据集时，退化为同构分布情形。
+
+【原文对应 LaTeX (lines 207-215)】
+Eq.(3): \min_{x \in R^d} f(x) := 1/M \sum f_m(x)
+→ CIV = 优化问题, CV = 目标函数, CVI = 局部损失函数, CVIII = 机器, CIX = 数据集, CX = 同构分布
+
+---
+
+【段落 3.2: 三个标准假设】
+
+Assumption 1 (CXII 与 CXIII):
+CVII f 有 CXII f*，所有 CVI f_m 满足 L-CXIII：‖∇f_m(x)-∇f_m(y)‖ ≤ L‖x-y‖。
+
+= Assumption 1 (下界与光滑性):
+全局损失函数 f 有下界 f*，所有局部损失函数 f_m 满足 L-光滑性。
+
+Assumption 2 (CXIV 与 CXV):
+随机梯度 W^m 无偏且噪声方差有界：E[W^m]=∇CVI(J), E[‖W^m_t-∇CVI(J)‖²]≤σ²。
+
+= Assumption 2 (无偏噪声与有界随机方差):
+随机梯度 g^m 无偏且噪声方差有界σ²。
+
+Assumption 3 (CXVI):
+1/CVIII ∑ ‖∇CVI(J)‖² ≤ G² + B²‖∇CVII(J)‖²。
+
+= Assumption 3 (有界异构性):
+1/M ∑ ‖∇f_m(x)‖² ≤ G² + B²‖∇f(x)‖²。
+G²=0, B²=1 退化为 CX。
+
+= G²=0, B²=1 退化为同构分布情形。
+
+【原文对应 LaTeX (lines 221-243)】
+→ CXII = 下界, CXIII = 光滑性, CXIV = 无偏噪声, CXV = 有界随机方差, CXVI = 有界异构性
+
+---
+
+【段落 3.3: 概率化同步等价性】
+
+为便于分析，将模型和 ⅩⅪ Ⅰ 视为对每次平均事件赋予概率。
+具体地，不再每 R_x 步做一次平均（即 ⅩⅢ），
+而是以概率 CXXIII p_x = 1/R_x 做平均，两者统计等价。
+
+= 为便于分析，将模型和优化器状态同步视为对每次平均事件赋予概率。
+具体地，不再每 Kx 步做一次平均（即 t mod Kx=0），
+而是以概率 px=1/Kx 做平均，两者统计等价（概率化同步等价）。
+
+【原文对应 LaTeX (lines 248-251)】
+"instead of averaging model parameters every K_x steps (i.e., t mod K_x = 0),
+we average with probability p_x = 1/K_x, which are statistically equivalent."
+→ CXXIII = 概率化同步等价
+
+---
+
+【段落 3.4: Theorem 1 (DES-LOC-SGDM 收敛率)】
+
+Theorem 1: 设 Assumption 1,2,3 成立。选择 CXVII η = min(CXVIII, 1/√T)，其中
+
+CXVIII η₀ = 1/(4L) · min(1-β, 1/√(CXXII·max(1,B²-1)))
+
+其中 CXXII ψ = 4(1-p_x)/p_x² · (1-β)(1-p_u) / (6·(1-(1-p_u)β))
+
+则 A-O 的平均迭代 x̄_t 以如下速率 LXVI：
+
+1/T ∑ E‖∇CVII(x̄_t)‖² ≤ 4/√T·(CVII(x₀)-f* + L·CXV/(2·CVIII)) + O((1+CXXII)/T)
+
+= Theorem 1: 设 Assumption 1,2,3 成立。选择步长 η = min(η₀, 1/√T)，其中
+η₀ = 1/(4L) · min(1-β, 1/√(ψ·max(1,B²-1)))
+ψ = 4(1-px)/px² · (1-β)(1-pu) / (6·(1-(1-pu)β))
+
+则 DES-LOC-SGDM 的平均迭代 x̄_t 以如下速率收敛：
+1/T ∑ E‖∇f(x̄_t)‖² ≤ 4/√T·(f(x₀)-f* + Lσ²/(2M)) + O((1+ψ)/T)
+
+【原文对应 LaTeX (lines 253-265)】
+Theorem 1 完整陈述
+→ CXVII = 步长, CXVIII = 步长限制η₀, CXXII = ψ因子
+
+---
+
+【段落 3.5: 收敛结果讨论与含义】
+
+收敛率 CXIX：CXX O(1/√T) 不受局部步数影响。
+概率 p_x、p_u 与 β 出现在 CXXI O(1/T) 中，对渐近速率影响有限。
+
+= 收敛率渐近最优：主项 O(1/√T) 不受局部步数影响。
+概率 px、pu 与 β 出现在高阶项 O(1/T) 中，对渐近速率影响有限。
+
+模型 Ⅰ 影响更大：ψ = O(1/p_x²)。p_x→0 时 CXXII 发散，破坏收敛。
+M Ⅰ 可关闭（p_u=0）不影响渐近，但会限制 CXVIII。
+p_u→0 时 CXVIII 最严格，因 ψ 最大化。
+
+= 模型同步影响更大：ψ = O(1/px²)。px→0 时 ψ 发散，破坏收敛。
+动量同步可关闭（pu=0）不影响渐近，但会限制步长η₀。
+pu→0 时步长限制最严格，因 ψ 最大化。
+
+增大 p_u（更频繁 M 平均）允许更大 CXVII → 实践中更快 LXVI。
+M ω 的 Ⅰ 频率可低于 J Ⅰ 频率，更多平均通过支持更大 CXVII 改善 LXVI。
+Appendix E 的高概率分析表明：β₂<1.0 时 M Ⅰ 频率必须 CXXV。
+
+= 增大 pu（更频繁动量平均）允许更大步长 → 实践中更快收敛。
+动量状态的同步频率可低于参数同步频率，更多平均通过支持更大步长改善收敛。
+Appendix E 的高概率分析表明：β₂<1.0 时动量同步频率必须有限。
+
+【原文对应 LaTeX (lines 267-283)】
+→ CXIX = 渐近最优, CXX = 主项, CXXI = 高阶项, CXXIV = 线性加速(1/M), CXXV = 有限同步频率
+
+================================================================================
+完整映射汇总（CI-CXXV）→ 已在上方逐段标注
+================================================================================
