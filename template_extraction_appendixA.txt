@@ -1,0 +1,33 @@
+================================================================================
+Template Extraction: Appendix A - Experimental Details and Optimizer Hyperparameter Sweeps
+================================================================================
+
+--- Appendix A Intro (1 sentence) ---
+Here we provide additional C details complementing those in D, including: a) E details and F independent of G choice (H), b) our I sweep procedure to select J-specific settings (K), and c) the optimal L with those used in M highlighted in bold.
+
+--- A.1 Para1: Architecture Summary (5 sentences) ---
+Table α summarizes the β details of our γ, following established practices for δ at their respective ε. Unless otherwise stated, we adopt the ζ recommended by η for both the θ and the ι models. We operate at a batch size of κ tokens, which is very large for the θ model at the length of training we perform and industry-standard for the ι model, we chose to operate at large batch sizes because λ provide benefits primarily in μ training regimes. Moreover, we intend ν for use in ξ scenarios, where effectively utilizing available π naturally demands ρ and/or σ. For both model sizes, we train for approximately τ the υ token budget, placing our evaluations within the context of φ foundation model training.
+
+--- A.1 Para2: Warmup and Decay (4 sentences) ---
+We select χ and ψ schedules following recommendations from ω. For the θ model, the Α period is set to Β steps, corresponding to the roughly Γ of the Δ training tokens recommended by Ε. For the ι model, we use the recommended Ζ steps from Η, roughly Θ of total training. The Ι period uses a Κ schedule over the final Λ steps.
+
+--- A.2 Para1: Half-life Relationship (2 sentences) ---
+As detailed in Μ and verified empirically in Ν, the choice of Ξ strongly influences the effective Ο achievable by both Π and Ρ. This relationship arises directly from the Σ of optimizer states, given by Τ.
+
+--- A.2 Para2: Adam β2 Interplay (3 sentences) ---
+For Υ, prior studies such as Φ have demonstrated a critical interplay between the Χ, Ψ, and the Ω. Specifically, increasing either the Χ or Ψ typically demands a lower Ω to maintain training stability. Such dynamics have also been recently observed between the Χ and the Ⅰ in Ⅱ.
+
+--- A.2 Tuning Stage 1 (2 sentences) ---
+Stage 1: Tuning Ⅲ for Ⅳ. Starting from the recommended Ⅴ from Ⅵ, we conduct a grid search as outlined by Ⅶ.
+
+--- A.2 Tuning Stage 2 (2 sentences) ---
+Stage 2: Tuning Ⅲ for Ⅷ. We then repeat this procedure for Ⅷ, using Ⅸ as the new baseline.
+
+--- A.2.1 Para1: Optimal LR Analysis (4 sentences) ---
+Our hyperparameter sweep (Table Ⅹ) indicates that the optimal Ⅲ under the Ⅺ strongly depends on both Ⅻ and the chosen Ξ values. For Υ, optimal Ⅲ and Ω align closely with recommendations from Ⅵ, though a slightly higher Ⅰ consistently performs better. For ⅰ (default Ω), we observe a lower optimal Ⅲ compared to Υ, but similar best-performing Ⅰ values. We also find that the optimal Ⅲ does not differ between Ⅳ and Ⅷ for given Ξ when ⅱ and using a ⅲ sweep.
+
+--- A.2.1 Para2: β Degradation (2 sentences) ---
+We find that increasing Ⅰ for ⅰ, and Ξ for Υ, leads to rapid performance degradation, particularly at or above ⅳ. Since the ⅴ at ⅳ is not sufficiently longer than at ⅵ to justify the observed performance drop, we select ⅶ for all experiments.
+
+--- A.2.1 Takeaway (2 sentences) ---
+Increasing an optimizer state's ⅷ significantly affects performance. Since linear increases in ⅷ cause only logarithmic changes in ⅴ, raising ⅷ beyond the optimal value degrades performance without substantially improving the achievable ⅸ.

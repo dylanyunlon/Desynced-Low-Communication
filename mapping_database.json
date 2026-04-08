@@ -1,8 +1,8 @@
 {
   "project": "DES-LOC: Desynced Low Communication Adaptive Optimizers",
   "source": "12473_DES_LOC_Desynced_Low_Com.pdf (ICLR 2026)",
-  "claude_instance": "第五位Claude (追加CLXXVI-CC)",
-  "scope": "M001-M125 (核心+收敛+实验+评估Section5.1-5.6)",
+  "claude_instance": "第七位Claude (追加CCXXX-CCLIV)",
+  "scope": "M001-M175 (核心+收敛+实验+评估+Related Work+Conclusion+Appendix A)",
   "mapping": {
     "A": "DES-LOC",
     "B": "Adam",
@@ -291,7 +291,32 @@
     "CCXXVI": "自适应频率 (adaptive frequencies)",
     "CCXXVII": "压缩更新 (compressed updates)",
     "CCXXVIII": "跨数据中心训练 (cross-data center training)",
-    "CCXXIX": "协作训练 (collaborative training)"
+    "CCXXIX": "协作训练 (collaborative training)",
+    "CCXXX": "架构表 (architecture table, Table 3)",
+    "CCXXXI": "超参搜索程序 (hyperparameter sweep procedure)",
+    "CCXXXII": "预热期 (warmup period T_WARM)",
+    "CCXXXIII": "衰减调度 (1-SQRT decay schedule)",
+    "CCXXXIV": "计算最优token预算 (compute-optimal token budget)",
+    "CCXXXV": "跨数据中心场景 (cross data-center scenarios)",
+    "CCXXXVI": "大批量训练体制 (large-batch training regime)",
+    "CCXXXVII": "半衰期 (half-life τ₀.₅)",
+    "CCXXXVIII": "η-β₂互相影响 (learning rate-β₂ interplay)",
+    "CCXXXIX": "√2网格搜索 (√2 multiplicative grid search)",
+    "CCXL": "DDP基线调优 (Stage 1 DDP tuning)",
+    "CCXLI": "Local Adam调优 (Stage 2 Local Adam tuning)",
+    "CCXLII": "权重衰减省略 (zero weight decay)",
+    "CCXLIII": "Nesterov超参搜索 (Nesterov sweep procedure)",
+    "CCXLIV": "最优学习率分析 (optimal η* analysis)",
+    "CCXLV": "β值性能退化 (performance degradation at high β)",
+    "CCXLVI": "β₁=0.95选择 (β₁ selection rationale)",
+    "CCXLVII": "β₂选择 (β₂=0.95 for Adam, default for ADOPT)",
+    "CCXLVIII": "学习率扫描表 (learning rate sweep table, Table 4)",
+    "CCXLIX": "同步频率-半衰期对应 (K ≈ τ₀.₅ heuristic)",
+    "CCL": "RoPE位置编码 (rotary positional embeddings)",
+    "CCLI": "SiLU激活函数 (SiLU activation)",
+    "CCLII": "延长训练 (2× compute-optimal training duration)",
+    "CCLIII": "批量大小-学习率约束 (batch size-learning rate constraint)",
+    "CCLIV": "β₁≤√β₂收敛要求 (convergence requirement β₁≤√β₂)"
   },
   "claude_instances": [
     "第一位Claude (M001-M025)",
@@ -299,7 +324,13 @@
     "第三位Claude (M051-M075)",
     "第四位Claude (M076-M100)",
     "第五位Claude (M101-M125)",
-    "第六位Claude (M126-M150)"
+    "第六位Claude (M126-M150)",
+    {
+      "instance": "Claude-7",
+      "range": "M151-M175",
+      "added": "CCXXX-CCLIV (25个Appendix A映射)",
+      "total_after": 313
+    }
   ],
   "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。Claude-3新增CXXVI-CL共25个实验设计专用映射。"
 }

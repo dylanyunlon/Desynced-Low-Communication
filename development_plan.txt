@@ -130,22 +130,45 @@ PDF总页数：54页
 第七位Claude 完成: M151-M175
   范围: Appendix A (Architecture Details + Hyperparameter Sweep)
   内容:
-    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
-    - pdftoppm渲染PDF page 12-16 (Appendix A)
-    - des_loc_appendix.tex 或 des_loc_reconstructed.tex 中 Appendix A 1:1校验
-    - Table 3 架构细节校验
-    - Table 4 超参数扫描校验
-    - nougat mmd 对比逐段补全
-    - template_extraction_appendixA.txt: Appendix A模板提炼
-    - mapping_database.json: 新增 CCXXX-CCLIV (25个Appendix A映射)
-  对应论文: Appendix A
-  强制检查项:
-    1. Table 3/4 数据必须与PDF逐cell核对
-    2. 段落数必须与nougat mmd一致
-    3. diff检查: 不得丢失Claude-6的Section 6-7修改
+    - pdftoppm渲染PDF page 17-19 (Appendix A实际在page 18-19)
+    - des_loc_appendix.tex Appendix A 1:1 PDF校验
+    - 补全缺失的Appendix A引言段(1句: "Here we provide...")
+    - A.1 para1补全3句: Moreover DES-LOC跨数据中心 / 2×compute-optimal / token budget保守
+    - A.1 para2补全2句: 短训练T=1536衰减缩放 / 种子说明
+    - A.2补全整段Adam β₂互相影响段(6句: Wortsman/Pagliardini引用)
+    - A.2 Stage 2补全 "between high-frequency (K=16) and low-frequency (K=256)"
+    - 补全权重衰减段(1句) + Nesterov搜索段(1句)
+    - 补全A.2.1小节标题 + Table 4 caption扩展(sweep procedure描述)
+    - Table 4 bold高亮最优配置行(ADOPT β₁=0.95, Adam β₁=0.95/β₂=0.95)
+    - 补全A.2.1 para1(4句: 最优η*分析) + para2(2句: β退化) + Takeaway(2句)
+    - template_extraction_appendixA.txt: Appendix A模板提炼(严格句数对齐)
+    - mapping_database.json: 新增 CCXXX-CCLIV (25个Appendix A映射, 总计313个)
+  对应论文: Appendix A (PDF pages 18-19)
+  状态: ✅ 已完成
+  句数校验: intro=1句✓, A1p1=6句✓, A1p2=6句✓, A2p1=2句✓, A2β段=6句✓,
+            stage1=2句✓, stage2=2句✓, wt_decay=1句✓, nesterov=1句✓,
+            A21p1=4句✓, A21p2=2句✓, takeaway=2句✓ (合计36句=nougat36句)
+  diff校验: Claude-6的Section 6-7 + Acknowledgments全部保留✓
+  ⚠️ 遗留给Claude-8: Appendix B (PDF pages 20-29) 大量Figure+实验结果
 
-第九位Claude 完成: M201-M225
-  范围: Appendix B.1-B.4
+第八位Claude 完成: M176-M200
+  范围: Appendix B.1-B.4 (Complementary Results Part 1)
+  内容:
+    - ⚠️ 必须基于Claude-7的commit后的HEAD工作（规范3）
+    - pdftoppm渲染PDF page 20-26
+    - nougat mmd中 "## Appendix B" 到 B.4末尾(约line 367-480)逐段校验
+    - des_loc_appendix.tex Section B placeholder替换为完整1:1内容
+    - B.1: Toy Problem on Non-IID Data (Figure 8-10 caption)
+    - B.2: Independent Sync Frequencies (Figure 11-14, RQ2补充)
+    - B.3: Communication Reduction Baselines (Figure 15-16, RQ3补充)
+    - B.4: FAVG+OPT Training Instabilities (Figure 17, activation norm)
+    - template_extraction_appendixB1.txt: B.1-B.4模板提炼(句数=nougat句数)
+    - mapping_database.json: 新增 CCLV-CCLXXIX (25个Appendix B映射)
+  对应论文: Appendix B.1-B.4 (PDF pages 20-26)
+  强制检查项:
+    1. Figure caption必须与PDF逐词核对(nougat可能OCR错误)
+    2. 段落数必须与nougat mmd一致
+    3. diff检查: 不得丢失Claude-7的Appendix A修改
   内容:
     - Non-IID数据Toy Problem
     - 独立同步频率补充实验

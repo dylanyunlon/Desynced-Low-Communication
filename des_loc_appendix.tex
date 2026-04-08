@@ -10,6 +10,8 @@
 \label{sec:appendix_a}
 %=============================================================================
 
+Here we provide additional experimental details complementing those in Section~4.1, including: a) model architecture details and hyperparameters independent of optimizer choice (Section~\ref{sec:arch_details}), b) our hyperparameter sweep procedure to select optimizer-specific settings (Section~\ref{sec:sweep}), and c) the optimal hyperparameters with those used in Section~5 highlighted in bold.
+
 \subsection{Architecture Details and Hyperparameters}
 \label{sec:arch_details}
 
@@ -33,11 +35,11 @@ language models at their respective scales. Unless otherwise stated, we adopt th
 recommended by~\citet{allal2025smollm2} for both the 135M and the 1.7B models. We operate at a
 batch size of 2M tokens, which is very large for the 135M model at the length of training we
 perform~\citep{zhang2025critical} and industry-standard for the 1.7B model~\citep{touvron2023llama2}, we
-chose to operate at large batch sizes because adaptive optimizers provide benefits primarily in large-batch training regimes~\citep{kunstner2023noise}.
+chose to operate at large batch sizes because adaptive optimizers provide benefits primarily in large-batch training regimes~\citep{kunstner2023noise}. Moreover, we intend \texttt{DES-LOC} for use in cross data-center scenarios, where effectively utilizing available accelerators naturally demands large batch sizes and/or model scales. For both model sizes, we train for approximately $2\times$ the compute-optimal token budget~\citep{hoffmann2022training}, placing our evaluations within the context of extended-duration foundation model training~\citep{allal2025smollm2}. Our chosen token budget is conservative due to resource constraints; for comparison, \citet{allal2025smollm2} used 11 trillion tokens which is over $4000\times$ compute-optimal for the 135M model, and $300\times$ for the 1.7B.
 
 We select warmup and decay schedules following recommendations from~\citet{zhang2025critical,hagele2024scaling,allal2025smollm2}. For the 135M model, the warmup period is set to $T_{\text{WARM}} = 512$
 steps, corresponding to roughly 40\% of the compute-optimal training tokens recommended by~\citet{zhang2025critical}. For the 1.7B model, we use the recommended $T_{\text{WARM}} = 2048$ steps from~\citet{allal2025smollm2}, roughly 10\% of total training. The stable-decay period uses a $1 - \text{SQRT}$ schedule over
-the final $T_{\text{DECAY}} = 10\% \times T$ steps~\citep{hagele2024scaling}.
+the final $T_{\text{DECAY}} = 10\% \times T$ steps~\citep{hagele2024scaling}. For shorter runs, such as $T = 1536$ during heterogeneous-data evaluations, we keep the warmup fixed and proportionally scale the decay to ensure well-conditioned parameter updates during the stable learning rate period. The seeds we use for data sampling and for controlling the training algorithms and model are provided in the code accompanying the appendix.
 
 \subsection{Optimizer Parameters Sweeping Procedure}
 \label{sec:sweep}
@@ -46,6 +48,8 @@ As detailed in Section~\ref{sec:desloc} and verified empirically in Section~\ref
 strongly influences the effective synchronization frequencies achievable by both DES-LOC and
 Local Adam. This relationship arises directly from the half-life of optimizer states, given by
 $\tau_{0.5} = \frac{\ln(0.5)}{\ln(\beta)}$.
+
+For Adam, prior studies such as \citet{wortsman2023stable} have demonstrated a critical interplay between the learning rate ($\eta$), batch size, and the second-momentum decay $\beta_2$. Specifically, increasing either the learning rate or batch size typically demands a lower $\beta_2$ to maintain training stability and avoid loss spikes. Conversely, higher $\beta_2$ values constrain the learning rate and batch size. Such dynamics have also been recently observed between the learning rate and the first-momentum decay $\beta_1$ in~\citet{pagliardini2025ademamix}. Given that all our experiments use a fixed large batch size of roughly 2 million tokens (appropriate for billion-scale training), we systematically tune the learning rate $\eta$ in response to changes in $\beta_1, \beta_2$. We try values of $\beta_1, \beta_2$ based on previous works~\citep{zhang2025critical} and follow the theoretical convergence requirement of~\citet{zhang2022adam} setting $\beta_1 \leq \sqrt{\beta_2}$.
 
 Due to computational constraints, we cannot jointly optimize synchronization periods, data distributions, and decay parameters, and instead adopt a structured two-stage tuning approach:
 \begin{enumerate}
@@ -56,30 +60,43 @@ Due to computational constraints, we cannot jointly optimize synchronization per
 
     \item \textbf{Stage 2: Tuning $\eta$ for Local Adam.} We then repeat this procedure for Local Adam,
     using $\eta^*_{\text{DDP}}$ as the new baseline. To balance generalizability and computational cost, we set
-    the synchronization period to an intermediate value of $K = 64$.
+    the synchronization period to an intermediate value of $K = 64$, between high-frequency ($K = 16$) and low-frequency ($K = 256$) scenarios.
 \end{enumerate}
+
+Additionally, following~\citet{zhang2025critical}, we omit weight decay (set to zero) to simplify the hyperparameter tuning process, as it directly affects only model parameters, not optimizer states.
+
+For experiments using Nesterov, we follow the hyperparameter sweeping procedure of~\citet{charles2025communication}, starting with a server learning rate of $1.0$ and a momentum of $0.9$ and only lowering it if it fails to converge.
+
+\subsubsection{Optimizers' Hyperparameter Configurations}
+\label{sec:hp_configs}
 
 \begin{table}[h]
 \centering
-\caption{Optimal learning rates $\eta^*$ for $\beta_1, \beta_2$ configurations of ADOPT/Adam.}
+\caption{Optimal learning rates $\eta^*$ for $\beta_1, \beta_2$ configurations of ADOPT/Adam. The hyperparameter sweep procedure (see Section~\ref{sec:sweep}) involves incrementally adjusting the learning rate by factors of $\sqrt{2}$ around the initial value from~\citet{allal2025smollm2} until performance stops improving.}
 \label{tab:lr_sweep}
 \begin{tabular}{llll}
 \toprule
 Optimizer & $\beta_1$ & $\beta_2$ & $\eta^*$ \\
 \midrule
 \multirow{4}{*}{ADOPT} & 0.9   & 0.9999 & 0.0021 \\
-                        & 0.95  & 0.9999 & 0.0021 \\
+                        & \textbf{0.95}  & \textbf{0.9999} & \textbf{0.0021} \\
                         & 0.99  & 0.9999 & 0.0014 \\
                         & 0.995 & 0.9999 & 0.0007 \\
 \midrule
 \multirow{5}{*}{Adam}  & 0.9   & 0.95   & 0.0042 \\
-                        & 0.95  & 0.95   & 0.003  \\
+                        & \textbf{0.95}  & \textbf{0.95}   & \textbf{0.003}  \\
                         & 0.9   & 0.99   & 0.003  \\
                         & 0.95  & 0.99   & 0.003  \\
                         & 0.99  & 0.99   & 0.0021 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+Our hyperparameter sweep (Table~\ref{tab:lr_sweep}) indicates that the optimal learning rate $\eta^*$ under the warmup-stable-decay scheduler~\citep{hagele2024scaling} strongly depends on both optimizer type and the chosen $\beta_1, \beta_2$ values. For Adam, optimal learning rates and second-momentum decay ($\beta_2$) align closely with recommendations from~\citet{allal2025smollm2}, though a slightly higher first-momentum decay ($\beta_1$) consistently performs better, in agreement with prior findings~\citep{zhang2025critical}. For ADOPT (default $\beta_2$), we observe a lower optimal learning rate compared to Adam, but similar best-performing $\beta_1$ values. We also find that the optimal learning rate does not differ between DDP and Local Adam for given $\beta_1, \beta_2$ when $K = 64$ and using a $\sqrt{2}$ sweep, higher learning rates either do not provide a benefit or diverge while lower learning rates are only necessary when pushing $K$ far closer to the complete training duration.
+
+We find that increasing $\beta_1$ for ADOPT, and $\beta_1, \beta_2$ for Adam, leads to rapid performance degradation, particularly at or above $0.99$. Since the half-life at $\beta = 0.99$ ($\tau_{0.5} \approx 69$) is not sufficiently longer than at $\beta = 0.95$ ($\tau_{0.5} \approx 13.5$) to justify the observed performance drop, we select $\beta_1 = 0.95$ for all experiments, along with the default $\beta_2$ for ADOPT and $\beta_2 = 0.95$ for Adam.
+
+\paragraph{Takeaway.} Increasing an optimizer state's $\beta$ significantly affects performance. Since linear increases in $\beta$ cause only logarithmic changes in half-life $\tau_{0.5}$, raising $\beta$ beyond the optimal value degrades performance without substantially improving the achievable synchronization frequency (Section~\ref{sec:rq2}).
 
 %=============================================================================
 \section{Complementary Results to Sections 2.1 and 5}
