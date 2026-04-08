@@ -1,0 +1,31 @@
+================================================================================
+模板提炼: Section 5 Evaluation (5.1-5.4)
+提炼者: Claude-4 (M076-M100)
+================================================================================
+
+--- Section 5 开头段 ---
+Our results show A states change at different rates (Section CLI), forming a clear CLII hierarchy (Section CLIII). B reduces communication CLIV vs. CLVIII (Section CLV) while converging robustly with adding S and scaling effectively to large models (Section CLVI).
+
+--- Section 5.1 RQ1: 经验变化率 ---
+Figure CLVII shows that relative rates of change for the two CLVIII in Local ADOPT/Adam scale with their CLIX under gradient clipping (ρ = CLX). Supported by our theoretical discussions on CLVIII half-lives (Section 2), the second CLVIII evolves substantially slower than the first at high-β₂. For CLVIII, the second CLVIII remains slower even when β₂ ≈ β₁, potentially because gradient variance evolves slower than the first CLVIII.
+
+Takeaway: As discussed in Sections 2 and 3, when β₁ ≪ β₂, the second CLVIII evolves slower than the first, proportional to half-life ratio CLXI.
+
+--- Section 5.2 RQ2: 同步频率 ---
+Figure CLXII evaluates the effect of independently varying R for J and A states. We consider two baseline periods (Kb = CLXIII), chosen based on the fastest state's half-life. Frequent J R (Kx) is crucial for performance, while synchronizing CLVIII (Ku, Kv) significantly impacts training only if their half-lives align with Kb. Otherwise, R primarily influences N rather than model quality.
+
+Takeaway: J R (Kx) strongly impacts performance, motivated by the leading term in theoretical bounds (Section 3). CLVIII R matter empirically only when chosen near their half-lives.
+
+--- Section 5.3 RQ3: 通信削减 ---
+A halves communication versus CLVIII with matching CLXIV by syncing CLVIII less frequently (Ku = 3Kx, Kv = 6Kx), exploiting the second-CLVIII's lower sensitivity to R. This yields a CLXV speedup over DDP and CLXVI over CLVIII at Kx = CLXIII on CLXVII. At Kx = CLXVIII, the speedup over DDP increases to CLXIX and both A and CLVIII saturate throughput.
+
+A effectively initializes new S and outperforms the straightforward approach of ad-hoc averaging from checkpoints.
+
+Takeaway: A achieves a CLIV communication reduction over CLVIII by leveraging two insights: A state sync matters less than J sync, and slower-changing states (high β₂) can sync less often.
+
+--- Section 5.4 RQ4: 大规模训练 ---
+A reliably scales to CLXX models and very infrequent communication (Kx = CLXVIII). Evaluating the CLXX models on the ICL tasks (Table CLXXI), A is competitive with all baselines while reducing communication versus CLVIII and DDP. The heuristic baseline suffers training instabilities potentially impacting downstream performance and underscoring the advantage of A's training stability. We elaborate more on the settings in which we expect A to improve stability in Section CLXXII.
+
+A's reduced communication costs result in a ≈ CLXXIII training speedup over DDP. These time savings scale with model size and comms frequency. At the CLXXIV scale with Kx = CLXIII, A would save CLXXV days over CLVIII and CLXXV days over DDP.
+
+Takeaway: A enables efficient training of large-scale foundation models, especially at long training horizons, with downstream ICL performance competitive with DDP. We recommend setting Kx for sufficient throughput based on bandwidth, then setting Ku, Kv as constant multiples or based on the half-life of their β.

@@ -78,31 +78,41 @@ PDF总页数：54页
 第四位Claude 完成: M076-M100
   范围: Section 5.1-5.4 (RQ1-RQ4) tex 1:1 校验 + 模板提炼
   内容:
-    - 用 pdftoppm 渲染 PDF page 6-8，逐段校验 Section 5 各 subsection 的 tex 与 PDF 是否 1:1
-    - 重点检查: Figure caption、Table 1/2 数值、Takeaway 段落完整性
-    - 检查 Section 5.1 是否缺少 "(of change" → nougat 有括号，PDF 确认有
-    - template.txt 追加 Section 5.1-5.4 模板段落
-    - mapping_database.json 新增 CLI-CLXXV（评估专用映射：衰减率/消融/加速比/ICL benchmark等）
-    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
+    - pdftoppm渲染PDF page 6-8, 逐段校验Section 5.1-5.4
+    - Section 5.4 para1补全缺失句(Section J引用)
+    - Section 5.4 para2补全13B时间对比完整内容(Table 2/5引用)
+    - Figure 5 caption添加(PDF page 8 top, 含170×数据)
+    - Table 1 caption补全(FAVG+OPT underperforms说明)
+    - Table 2 caption扩展(K=16/256对比) + 数据补全±标准差 + row labels修正
+    - template_extraction_section5.txt: Section 5.1-5.4模板
+    - mapping_database.json: CLI-CLXXV 25个评估映射(总计233个)
   对应论文: Section 5.1-5.4
+  状态: ✅ 已完成
+  ⚠️ 遗留给Claude-5: Figure 2/3/4 caption未在tex中添加(PDF page 6-7)
 
 第五位Claude 完成: M101-M125
-  范围: Section 5.3 通信削减 (RQ3)
+  范围: Section 5.5-5.6 (RQ5-RQ6) tex 1:1校验 + Figure 2/3/4/6/7 caption补全
   内容:
-    - DES-LOC vs Local Adam 2x通信削减验证
-    - Worker动态添加的鲁棒性测试
-    - Figure 4 数据复现
-    - Wall-clock时间加速比计算
-  对应论文: Section 5.3
+    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
+    - 【Claude-4遗留】补全 Figure 2 caption (PDF page 6 top, rates of change图)
+    - 【Claude-4遗留】补全 Figure 3 caption (PDF page 7 top, sync frequency图)
+    - 【Claude-4遗留】补全 Figure 4 caption (PDF page 7 bottom, comms reduction图)
+    - pdftoppm渲染PDF page 9, 逐段校验Section 5.5-5.6
+    - Section 5.5 (RQ5): 校验Nesterov段落与PDF 1:1, 补全Figure 6 caption
+    - Section 5.6 (RQ6): 校验Muon段落与PDF 1:1, 补全Figure 7 caption
+    - template_extraction_section5.txt 追加 Section 5.5-5.6模板
+    - mapping_database.json 新增 CLXXVI-CC (Nesterov/Muon/outer optimizer映射)
+  对应论文: Section 5.5-5.6 + Figure 2-4补全
 
 第六位Claude 完成: M126-M150
-  范围: Section 5.4 大规模训练 (RQ4)
+  范围: Section 6-7 (Related Work + Conclusion) tex 1:1校验
   内容:
-    - 1.7B模型训练配置
-    - ICL benchmark评估 (Arc, PIQA, HellaSwag)
-    - Table 1, 2 数据验证
-    - Figure 5 训练曲线复现
-  对应论文: Section 5.4
+    - pdftoppm渲染PDF page 9-10, 校验Section 6/7
+    - Related Work段落完整性检查
+    - Conclusion段落完整性检查
+    - Acknowledgments校验
+    - template提炼 + mapping追加
+  对应论文: Section 6, 7
 
 第七位Claude 完成: M151-M175
   范围: Section 5.5-5.6 (RQ5, RQ6)

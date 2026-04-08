@@ -1,8 +1,8 @@
 {
   "project": "DES-LOC: Desynced Low Communication Adaptive Optimizers",
   "source": "12473_DES_LOC_Desynced_Low_Com.pdf (ICLR 2026)",
-  "claude_instance": "第一位Claude",
-  "scope": "M001-M025 (核心架构 + 算法 + 同步策略 + 收敛理论 + 实验设计)",
+  "claude_instance": "第四位Claude (追加CLI-CLXXV)",
+  "scope": "M001-M100 (核心+收敛+实验+评估Section5.1-5.4)",
   "mapping": {
     "A": "DES-LOC",
     "B": "Adam",
@@ -160,7 +160,6 @@
     "qq": "时",
     "ee": "复杂",
     "xx": "构建/构造",
-
     "_separator_claude2": "========== Claude-2 (M026-M050) 新增: Section 3 收敛理论 ==========",
     "CI": "收敛保证（Convergence Guarantees）",
     "CII": "非凸（non-convex）",
@@ -187,7 +186,6 @@
     "CXXIII": "概率化同步等价（probabilistic sync equivalence: px=1/Kx）",
     "CXXIV": "线性加速（linear speedup 1/M）",
     "CXXV": "有限同步频率（finite sync frequency for β₂<1.0）",
-
     "_separator_claude3": "========== Claude-3 (M051-M075) 新增: Section 4 实验设计 ==========",
     "CXXVI": "研究问题（Research Question, RQ）",
     "CXXVII": "GPT风格模型（GPT-style model）",
@@ -213,8 +211,37 @@
     "CXLVII": "Muon",
     "CXLVIII": "数据分布（data distribution）",
     "CXLIX": "Non-IID",
-    "CL": "带宽（bandwidth, 100Gb/s）"
+    "CL": "带宽（bandwidth, 100Gb/s）",
+    "CLI": "Section 5.1 (RQ1变化率)",
+    "CLII": "同步层次结构 (synchronization hierarchy)",
+    "CLIII": "Section 5.2 (RQ2同步频率)",
+    "CLIV": "2× 通信削减",
+    "CLV": "Section 5.3 (RQ3通信)",
+    "CLVI": "Section 5.4 (RQ4大规模)",
+    "CLVII": "Figure 2 (rates of change图)",
+    "CLVIII": "Local Adam/ADOPT (对比基线)",
+    "CLIX": "衰减率 (decay rates)",
+    "CLX": "梯度裁剪半径 ρ=1",
+    "CLXI": "半衰期比 τ₀.₅(β₂)/τ₀.₅(β₁) = ln(β₁)/ln(β₂)",
+    "CLXII": "Figure 3 (sync frequency图)",
+    "CLXIII": "基准周期 Kb=16,256",
+    "CLXIV": "困惑度 (perplexity)",
+    "CLXV": "1.37× 加速比 (DDP)",
+    "CLXVI": "1.1× 加速比 (Local Adam)",
+    "CLXVII": "4 H100s 硬件配置",
+    "CLXVIII": "Kx=256 低频同步",
+    "CLXIX": "1.47× 加速比 (DDP低频)",
+    "CLXX": "1B/1.7B 亿级模型",
+    "CLXXI": "Table 1 (ICL benchmark表)",
+    "CLXXII": "Section J (临界批量分析)",
+    "CLXXIII": "≈2.2× 训练加速",
+    "CLXXIV": "13B 模型规模",
+    "CLXXV": "Table 5 (吞吐量表)"
   },
-  "claude_instances": ["第一位Claude (M001-M025)", "第二位Claude (M026-M050)", "第三位Claude (M051-M075)"],
+  "claude_instances": [
+    "第一位Claude (M001-M025)",
+    "第二位Claude (M026-M050)",
+    "第三位Claude (M051-M075)"
+  ],
   "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。Claude-3新增CXXVI-CL共25个实验设计专用映射。"
 }
