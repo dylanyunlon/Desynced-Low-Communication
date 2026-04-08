@@ -50,3 +50,16 @@ CXXV 要求（β₂<1.0 时）（六个中文字）
 O 分析允许 p_u=0 不破坏渐近速率，但完整 B 的高概率分析（Appendix E）表明：β₂<1.0 时 R_v 必须 CXXV（即 p_v>0）。直觉上 β₂<1 时 v_t 在 LXIV 间会显著漂移，导致自适应 CXVII 不一致，阻止高概率 LXVI。
 Toy Problem 验证（Figure 1）
 CII Rosenbrock 函数 f(x₁,x₂)=(1-x₁)²+100(x₂-x₁²)²，CVIII=256 LXIV，IID 高斯噪声 σ=1.5。A（R_x=192, R_u=192, R_v=692）与 H（R=R_x）均 LXVI 到最优（重叠）。保持 ⅩⅪ 本地的方法无法 LXVI。周期性重置 ⅩⅪ 的方法因反复振荡而 ⅩⅩⅦ。Non-IID 版本见 Appendix B.1 Fig.8。
+%=============================================================================
+% Claude-3 (M051-M075): Section 4 实验设计 模板
+%=============================================================================
+CXXVI 设计（四个中文字）
+实验设置围绕六个 CXXVI 展开：（RQ1）理论 CXL 是否预测经验演化？（RQ2）Ⅰ 频率如何影响 LVIII？（RQ3）A 能否削减 CXXXIV？（RQ4）A 能否扩展到大 LXXXV？（RQ5）CXLV 作为 CXLIV？（RQ6）A 是否兼容 CXLVII 等非 B CXLVI？
+CXXVII 与 υ（四个中文字）
+训练一个 135M 参数的 CXXVII（架构见 Table 3），CXXVIII 为 2048。区分 LXIV CXXIX B_w 与 CXXX B=∑B_w。2M token CXXX 在 CVIII=4 个 LXIV 间 IID 采样自 SmolLM2：70% Fineweb-Edu, 10% Cosmopedia, 10% Python-Edu, 5% FineMath 4+, 5% Infi-WebMath 4+。135M 训练 6.4B tokens（2.4× CXXXI）。RQ4 扩展到 1.7B LXXXV 训练 40B tokens（2× CXXXI）。CXLIX υ 结果见 Fig.14。
+B φ（四个中文字）
+使用 B（结果见 Section B）及其 β Y，Y 修改 K 以保证任意 β₂ 的 LXVI。135M LXXXV CXXXII (β₁,β₂,η)；1.7B 使用文献 ε。θ 采用 WSD schedule。高 β 体制下优先选择 Y（β₂=0.9999）。消融 CXLIV：比较 XLVI 与 CXLV（700M LXXXV，40B tokens）。
+CXXXV（四个中文字）
+比较 A 与：(i) Ⅶ C；(ii) H/Y；(iii) FAVG+OPT（CXXXVI）；(iv) FAVG-OPT（CXXXVII）。CXXXVI 的 FAVG 即 A 中 K_u,K_v=∞，CXXXIV 上界。C 为 ML LVIII 上界。
+评估 χ（四个中文字）
+通过 (i) CXXXIII 和 (ii) LXIV 渐近 CXXXIV 评估 LXXXV，CXXXIV 假设 CL 最优 Ⅱ 且随 LXXXV 大小线性缩放。1.7B LXXXV 报告标准 CXXXVIII benchmark。CXXXIX 设置下报告 CXXXVIII 任务。公平比较不同 ⅩⅩ 下 ⅩⅪ 变化：测量 CXL ‖s_{t+K}-s_t‖₂/‖s_t‖₂。LXVI 图报告最终轮均值和标准差。CXLIII 结果：sub-1B 用 4 台 CVIII 各 1 张 H100，大规模用 4 台各 8 张 H100。CL 100Gb/s，实际 60-70Gb/s。步进式（Section B.3.1）和时间式 LXVI。CL vs CXLIII 分析见 Section G.1。

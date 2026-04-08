@@ -2,6 +2,7 @@
 % Reconstructed from 12473_DES_LOC_Desynced_Low_Com.pdf
 % Claude-1 (M001-M025): Sections 1-7 main body LaTeX reconstruction
 % Claude-2 (M026-M050): Section 3 Convergence Guarantees — strict 1:1 PDF match, ψ formula fix
+% Claude-3 (M051-M075): Section 4 Experimental Design — Metrics paragraph completion, Section 5.2 fix
 % Original: Published as a conference paper at ICLR 2026
 
 \documentclass{article}
@@ -340,7 +341,13 @@ $K_u, K_v = \infty$, an upper bound on comms efficiency. DDP is an upper bound o
 \paragraph{Metrics.} We evaluate models by (i) perplexity and (ii) per-worker asymptotic communication cost
 assuming a bandwidth-optimal Ring-AllReduce~\citep{sergeev2018horovod} algorithm scaling
 linearly with model size. For the 1.7B model, we report standard in-context-learning (ICL) benchmarks~\citep{brown2020language}. We use a zero-shot setting for ICL tasks unless stated otherwise following~\citet{allal2025smollm2} and report the best performing communication-efficient method in blue with the
-best-performing overall in bold.
+best-performing overall in bold. To fairly compare optimizer-state changes across decay rates, we
+measure their \emph{relative} rates of change as $\|s_{t+K} - s_t\|_2 / \|s_t\|_2$. For convergence plots, we report
+final-round means and standard deviations next to labels. We also provide wall-time clock results;
+we use $4$ machines with one H100 for sub-1B models, and $4$ machines with $8$ H100s each for larger
+scales. While the links between machines run at $100$Gb/s, we observed overheads limiting the
+practical bandwidth to $60$--$70$ Gb/s. We report stepwise (see Section~\ref{sec:stepwise}) and timewise convergence.
+We also provide an analysis on the wall-clock time vs bandwidth in Section~\ref{sec:wallclock_bandwidth}.
 
 %=============================================================================
 \section{Evaluation}
@@ -374,7 +381,7 @@ parameters and optimizer states. We consider two baseline periods ($K_b = 16, 25
 on the fastest state's half-life ($\tau_{0.5}(0.95) \approx 13.5$). Frequent parameter synchronization ($K_x$) is
 crucial for performance, while synchronizing momenta ($K_u, K_v$) significantly impacts training only
 if their half-lives align with the base frequency $K_b$. Otherwise, synchronization frequency primarily
-influences communication costs rather than model quality.
+influences communication costs rather than model quality. Adam results can be seen in Section~\ref{sec:complementary}.
 
 \paragraph{Takeaway:} Parameter synchronization frequency ($K_x$) strongly impacts performance, motivated
 by the leading term in theoretical bounds (Section~\ref{sec:convergence}). Momentum synchronization periods matter

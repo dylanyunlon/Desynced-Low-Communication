@@ -64,21 +64,27 @@ PDF总页数：54页
   状态: ✅ 已完成
 
 第三位Claude 完成: M051-M075
-  范围: Section 4 实验设计部分
+  范围: Section 4 实验设计 + Section 5.2 修复
   内容:
-    - 135M GPT模型架构配置实现
-    - SmolLM2数据集配置
-    - ADOPT/Adam优化器配置
-    - 基线方法实现 (DDP, Local Adam, FAVG+OPT, FAVG-OPT)
-  对应论文: Section 4 (Experimental Design)
+    - des_loc_reconstructed.tex Section 4 Metrics段落补全（PDF page 5底部6行缺失文本）
+    - Section 5.2 补全 "Adam results can be seen in Section B." 缺失句
+    - template.txt 追加 Section 4 模板段落（CXXVI设计/CXXVII与υ/Bφ/CXXXV/评估χ）
+    - mapping_database.json 新增 CXXVI-CL 共25个实验设计映射
+    - 更新 development_plan.txt
+  对应论文: Section 4 (Experimental Design) + Section 5.2 一处遗漏
+  状态: ✅ 已完成
+  ⚠️ 已知问题: Section 5 Evaluation 各subsection尚未做模板提炼（留给Claude-4+）
 
 第四位Claude 完成: M076-M100
-  范围: Section 5.1-5.2 实验评估 (RQ1, RQ2)
+  范围: Section 5.1-5.4 (RQ1-RQ4) tex 1:1 校验 + 模板提炼
   内容:
-    - 半衰期τ0.5与经验变化率的对比验证
-    - 独立同步频率消融实验
-    - Figure 2, 3 的数据复现
-  对应论文: Section 5.1-5.2
+    - 用 pdftoppm 渲染 PDF page 6-8，逐段校验 Section 5 各 subsection 的 tex 与 PDF 是否 1:1
+    - 重点检查: Figure caption、Table 1/2 数值、Takeaway 段落完整性
+    - 检查 Section 5.1 是否缺少 "(of change" → nougat 有括号，PDF 确认有
+    - template.txt 追加 Section 5.1-5.4 模板段落
+    - mapping_database.json 新增 CLI-CLXXV（评估专用映射：衰减率/消融/加速比/ICL benchmark等）
+    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
+  对应论文: Section 5.1-5.4
 
 第五位Claude 完成: M101-M125
   范围: Section 5.3 通信削减 (RQ3)

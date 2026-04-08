@@ -186,8 +186,35 @@
     "CXXII": "ψ因子（ψ = 4(1-px)/px²·(1-β)(1-pu)/(6(1-(1-pu)β))）",
     "CXXIII": "概率化同步等价（probabilistic sync equivalence: px=1/Kx）",
     "CXXIV": "线性加速（linear speedup 1/M）",
-    "CXXV": "有限同步频率（finite sync frequency for β₂<1.0）"
+    "CXXV": "有限同步频率（finite sync frequency for β₂<1.0）",
+
+    "_separator_claude3": "========== Claude-3 (M051-M075) 新增: Section 4 实验设计 ==========",
+    "CXXVI": "研究问题（Research Question, RQ）",
+    "CXXVII": "GPT风格模型（GPT-style model）",
+    "CXXVIII": "序列长度（sequence length）",
+    "CXXIX": "批量大小（batch size, B_w）",
+    "CXXX": "全局批量（global batch B）",
+    "CXXXI": "计算最优（compute-optimal）",
+    "CXXXII": "网格搜索（grid-search）",
+    "CXXXIII": "困惑度（perplexity）",
+    "CXXXIV": "通信成本（communication cost）",
+    "CXXXV": "基线方法（baseline）",
+    "CXXXVI": "持久状态（persistent states, FAVG+OPT）",
+    "CXXXVII": "重置状态（reset states, FAVG-OPT）",
+    "CXXXVIII": "上下文学习（in-context learning, ICL）",
+    "CXXXIX": "零样本（zero-shot）",
+    "CXL": "相对变化率（relative rate of change ‖s_{t+K}-s_t‖₂/‖s_t‖₂）",
+    "CXLI": "硬件配置（hardware setup, H100）",
+    "CXLII": "吞吐量（throughput）",
+    "CXLIII": "墙钟时间（wall-clock time）",
+    "CXLIV": "外部优化器（outer optimizer, SERVEROPT）",
+    "CXLV": "Nesterov",
+    "CXLVI": "内部优化器（inner optimizer）",
+    "CXLVII": "Muon",
+    "CXLVIII": "数据分布（data distribution）",
+    "CXLIX": "Non-IID",
+    "CL": "带宽（bandwidth, 100Gb/s）"
   },
-  "claude_instances": ["第一位Claude (M001-M025)", "第二位Claude (M026-M050)"],
-  "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。"
+  "claude_instances": ["第一位Claude (M001-M025)", "第二位Claude (M026-M050)", "第三位Claude (M051-M075)"],
+  "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。Claude-3新增CXXVI-CL共25个实验设计专用映射。"
 }
