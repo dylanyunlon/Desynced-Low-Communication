@@ -372,14 +372,6 @@ because gradient variance~\citep{kingma2015adam} evolves slower than the first m
 \paragraph{Takeaway:} As discussed in Sections~\ref{sec:desloc} and~\ref{sec:convergence}, when $\beta_1 \ll \beta_2$, the second momentum evolves slower
 than the first, proportional to half-life ratio of the two $\frac{\tau_{0.5}(\beta_2)}{\tau_{0.5}(\beta_1)} = \frac{\ln(\beta_1)}{\ln(\beta_2)}$.
 
-% Figure 2: PDF page 6 top
-\begin{figure}[t]
-\centering
-% [Figure 2 graphic from original PDF]
-\caption{Relative rates of change for first (left) and second (right) momenta across rounds using standard Local ADOPT ($K = 64$). For ADOPT ($\beta_2 = 0.9999$), increasing $\beta_1 \geq 0.99$ greatly slows the first-momentum rate of change. The second momentum evolves $\sim 100\times$ slower.}
-\label{fig:rates_of_change}
-\end{figure}
-
 %-----------------------------------------------------------------------------
 \subsection{Parameters Require Frequent Sync, Momenta Sync Proportional to $\beta$ (RQ2)}
 \label{sec:rq2}
@@ -395,14 +387,6 @@ influences communication costs rather than model quality. Adam results can be se
 \paragraph{Takeaway:} Parameter synchronization frequency ($K_x$) strongly impacts performance, motivated
 by the leading term in theoretical bounds (Section~\ref{sec:convergence}). Momentum synchronization periods matter
 empirically only when chosen near their half-lives, consistent with Sections~\ref{sec:desloc} and~\ref{sec:convergence}.
-
-% Figure 3: PDF page 7 top
-\begin{figure}[t]
-\centering
-% [Figure 3 graphic from original PDF]
-\caption{Model perplexity for DES-LOC (ADOPT, $\beta_1 = 0.95, \beta_2 = 0.9999$), varying synchronization periods independently (others fixed at $K_b$). Parameter synchronization (a) is critical, with degradation at higher periods. Second-momentum sync (b) minimally affects performance due to its large half-life. First-momentum sync improves perplexity when the freq matches its half-life; contrast (c) and (d). Parameters and second momentum behave similarly across frequencies (Section~\ref{sec:complementary})}
-\label{fig:sync_freq}
-\end{figure}
 
 %-----------------------------------------------------------------------------
 \subsection{DES-LOC Brings $2\times$ Communication Reductions over Local Adam (RQ3)}
@@ -421,14 +405,6 @@ As shown in Figure~\ref{fig:comms}, DES-LOC effectively initializes new workers 
 insights: optimizer-state sync matters less than parameter sync, and slower-changing states (high $\beta_2$)
 can sync less often. By eventually syncing all optimizer states, DES-LOC matches the robustness of
 Local Adam with $K = \max(K_x, K_u, K_v)$ when adding new workers/responding to system failures.
-
-% Figure 4: PDF page 7 bottom
-\begin{figure}[t]
-\centering
-% [Figure 4 graphic from original PDF]
-\caption{DES-LOC ($K_u, K_v = 3K_x, 6K_x$) reduces comms by $2\times$ over Local Adam while matching its performance and that of heuristic baselines at high (a) and low (b) frequencies (Section~\ref{sec:baselines}). We show robustness by doubling worker count at step $1536$ (c,d), where DES-LOC and Local Adam maintain stable perplexity/norms, outperforming heuristics and ad-hoc optimizer-state averaging.}
-\label{fig:comms}
-\end{figure}
 
 %-----------------------------------------------------------------------------
 \subsection{DES-LOC is Suitable for Large-Scale Training (RQ4)}
@@ -506,29 +482,10 @@ $3\times$, $6\times$) or based on the half-life of their $\beta$ (see Section~\r
 
 We ablate the outer optimizer for DES-LOC on a 700M parameter model, comparing averaging to a
 Nesterov optimizer with momentum of 0.9, outer learning rate of 1.0 tuned following~\citet{charles2025communication}. The experiment ran on 4 H100s and used a medium-synchronization regime ($K_x = 32$, $K_u =
-3K_x$, $K_v = 6K_x$) where models are initialised from 2048-step DDP checkpoints, following~\citet{charles2025communication}. While our convergence bound is not trivially applicable, our analysis of Eq.~(\ref{eq:psi}) suggests a higher momentum synchronization frequency ($p_u$) should permit a larger step size ($\eta_0 \propto 1/\sqrt{\psi}$).
-
-As shown in Figure~\ref{fig:nesterov}, two key points emerge. First, more frequent synchronization ($K_x = 32$)
-allows DES-LOC to come within $1\%$ of the final perplexity of DDP, performing much better than
-in infrequent settings ($K_x = 256$). Second, using Nesterov as the outer optimizer improves
-performance over averaging by $\approx 0.5\%$, with its performance w.r.t DDP being similar to the one
-reported in~\citet{charles2025communication}, Table~4) for models at this scale. The Nesterov approach
-preserves the practical benefits of DES-LOC, ensuring effective worker initialization and reducing
-local optimization noise, which can help prevent issues like exploding activation norms.
-
-% Figure 6: PDF page 9 top
-\begin{figure}[t]
-\centering
-% [Figure 6 graphic from original PDF]
-\caption{Ablation of the outer optimizer for DES-LOC on a $700$M parameter model in a medium-frequency communication setting ($K_x = 32$), showing (left) convergence in terms of time and (right) in terms of steps. In this regime, DES-LOC's final perplexity is within $1\%$ of the DDP baseline. Using a Nesterov outer optimizer provides a further improvement over averaging.}
-\label{fig:nesterov}
-\end{figure}
+3K_x$, $K_v = 6K_x$) where models are initialised from 2048-step DDP checkpoints, following~\citet{charles2025communication}.
 
 \paragraph{Takeaway:} Frequent synchronization ($K_x = 32$) allows DES-LOC to reach within 1\% of the perplexity of DDP. Furthermore, using a Nesterov outer optimizer improves performance over averaging,
 while preserving practical benefits like effective worker initialization and reduced optimization noise.
-
-We further investigate the benefits of synchronizing optimizer states under a Nesterov outer
-optimizer relative to purely local-state methods (DiLoCo) at the 1B scale in Section~\ref{sec:nesterov_diloco}.
 
 %-----------------------------------------------------------------------------
 \subsection{Muon as the Inner Optimizer (RQ6)}
@@ -540,19 +497,6 @@ Since Muon preconditions the momentum term directly rather than tracking second-
 estimates, the relevant synchronization periods reduce to parameters ($K_x$) and momentum ($K_u$). We
 apply DES-LOC by synchronizing the Muon momentum buffer less frequently than the parameters,
 setting $K_u = 3K_x$ with $K_x = 32$.
-
-As shown in Figure~\ref{fig:muon}, DES-LOC matches the perplexity of the Local Muon baseline across
-model scales ranging from 16M to $360$M parameters. By decoupling the synchronization frequencies,
-DES-LOC communicates more than $1.5\times$ fewer bytes than the baseline, confirming that the Half-Life
-Principle extends to optimizers beyond the Adam family. Full experimental details in Section~\ref{sec:muon_details}.
-
-% Figure 7: PDF page 9 middle
-\begin{figure}[t]
-\centering
-% [Figure 7 graphic from original PDF]
-\caption{Training loss comparison between Local Muon ($K = 32$) and DES-LOC-Muon ($K_x = 32, K_u = 96$) across model scales ($16$M, $125$M, $360$M). DES-LOC matches the Local Muon baseline across all scales while communicating more than $\mathbf{1.5\times}$ fewer bytes. See Section~\ref{sec:muon_details} for full experimental details.}
-\label{fig:muon}
-\end{figure}
 
 \paragraph{Takeaway:} DES-LOC is compatible with single-momentum optimizers such as Muon that rely
 on Newton-Schulz preconditioning. By reducing the synchronization frequency of the momentum

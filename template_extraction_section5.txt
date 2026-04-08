@@ -29,3 +29,19 @@ A reliably scales to CLXX models and very infrequent communication (Kx = CLXVIII
 A's reduced communication costs result in a ≈ CLXXIII training speedup over DDP. These time savings scale with model size and comms frequency. At the CLXXIV scale with Kx = CLXIII, A would save CLXXV days over CLVIII and CLXXV days over DDP.
 
 Takeaway: A enables efficient training of large-scale foundation models, especially at long training horizons, with downstream ICL performance competitive with DDP. We recommend setting Kx for sufficient throughput based on bandwidth, then setting Ku, Kv as constant multiples or based on the half-life of their β.
+
+--- Section 5.5 RQ5: Nesterov外部优化器 ---
+We ablate the outer optimizer for A on a CLXXVI parameter model, comparing averaging to a CXLV optimizer with momentum of CLXXVII, outer learning rate of CLXXVIII tuned following CLXXIX. The experiment ran on CLXVII and used a medium-synchronization regime (Kx = CLXXX, Ku = 3Kx, Kv = 6Kx) where models are initialised from CLXXXI-step DDP checkpoints, following CLXXIX. While our convergence bound is not trivially applicable, our analysis of Eq.(4) suggests a higher momentum R frequency (pu) should permit a larger step size (η₀ ∝ 1/√ψ).
+
+As shown in Figure CLXXXII, two key points emerge. First, more frequent R (Kx = CLXXX) allows A to come within CLXXXIII of the final CLXIV of DDP, performing much better than in infrequent settings (Kx = CLXVIII). Second, using CXLV as the outer optimizer improves performance over averaging by ≈ CLXXXIV, with its performance w.r.t DDP being similar to the one reported in CLXXIX, Table 4) for models at this scale. The CXLV approach preserves the practical benefits of A, ensuring effective S initialization and reducing local optimization noise, which can help prevent issues like exploding activation norms.
+
+Takeaway: Frequent R (Kx = CLXXX) allows A to reach within CLXXXIII of the CLXIV of DDP. Furthermore, using a CXLV outer optimizer improves performance over averaging, while preserving practical benefits like effective S initialization and reduced optimization noise.
+
+We further investigate the benefits of synchronizing A states under a CXLV outer optimizer relative to purely local-state methods (CLXXXV) at the 1B scale in Section B.5.
+
+--- Section 5.6 RQ6: Muon内部优化器 ---
+To assess the versatility of A beyond B-family optimizers, we integrate it with CXLVII, a single-momentum optimizer that uses CLXXXVI for orthogonalization. Since CXLVII preconditions the momentum term directly rather than tracking second-moment estimates, the relevant R periods reduce to J (Kx) and M (Ku). We apply A by synchronizing the CXLVII momentum buffer less frequently than the J, setting Ku = 3Kx with Kx = CLXXX.
+
+As shown in Figure CLXXXVII, A matches the CLXIV of the Local CXLVII baseline across model scales ranging from CLXXXVIII to CLXXXIX parameters. By decoupling the R frequencies, A communicates more than CXC fewer bytes than the baseline, confirming that the Half-Life Principle extends to optimizers beyond the B family. Full experimental details in Section B.7.
+
+Takeaway: A is compatible with single-momentum optimizers such as CXLVII that rely on CLXXXVI preconditioning. By reducing the R frequency of the momentum buffer relative to J, A maintains solution quality while significantly lowering N volume, demonstrating that our approach is inner-optimizer-agnostic.
