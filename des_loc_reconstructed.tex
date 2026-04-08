@@ -564,17 +564,20 @@ communication volume, demonstrating that our approach is inner-optimizer-agnosti
 \label{sec:related}
 %=============================================================================
 
-In synchronous data-parallel training, workers exchange full gradients or parameters every iteration,
+In synchronous data-parallel training, workers exchange full gradients or parameters \textit{every} iteration,
 incurring communication costs linear in model size using Ring-AllReduce~\citep{sergeev2018horovod}.
 When hardware is weakly connected or widely distributed, communication significantly
 slows wall-clock training time~\citep{sani2025photon} as workers need to wait for synchronization to
 finish. Federated Averaging (FedAvg)~\citep{mcmahan2017communication} and Local SGD~\citep{stich2019local}
 reduce communication by performing $K$ local optimization steps before averaging parameters,
-decreasing communication rounds by a factor of $K$.
+decreasing communication rounds by a factor of $K$. Ad-hoc extensions to adaptive optimizers either
+keep optimizer states local~\citep{douillard2023diloco,charles2025scaling,liu2024asynchronous} or reset them
+after each sync~\citep{sani2024future,sani2025photon}, both lacking robust convergence guarantees.
 
 Adam~\citep{kingma2015adam} is popular for pre-training as it scales to larger batches than SGD~\citep{kunstner2023noise,dubey2024llama}. It uses moving averages of gradients and their squares, however,
-its convergence is not guaranteed as it requires $\beta_1 < \sqrt{\beta_2} < 1$, with large, problem-specific $\beta_2$~\citep{reddi2018convergence,zhang2022adam}. Local Adam~\citep{cheng2025convergence} reduces communication with local steps but requires syncing optimizer states, which triples the
-communication cost relative to Local SGD/DDP, as sync costs scale with the number of states.
+its convergence is not guaranteed as it requires $\beta_1 < \sqrt{\beta_2} < 1$, with large, problem-specific $\beta_2$~\citep{reddi2018convergence,zhang2022adam}. Other optimizers also track gradient moments~\citep{sutskever2013importance,chen2023symbolic,you2020large,taniguchi2024improved}. \textit{Local Adam}~\citep{cheng2025convergence} reduces communication with local steps but requires syncing optimizer states, which triples the
+communication cost relative to Local SGD/DDP, as sync costs scale with the number of states. For
+further related work, including compression/sparsification and structured updates, check Section~\ref{sec:extended_related_work}.
 
 %=============================================================================
 \section{Conclusion}
@@ -583,9 +586,9 @@ communication cost relative to Local SGD/DDP, as sync costs scale with the numbe
 
 DES-LOC reconciles communication efficiency with rigorous convergence guarantees in distributed
 adaptive optimization. By extending theory to the independent synchronization of Adam and SGDM
-optimizer states, we empirically demonstrate convergence alongside $170\times$ and $2\times$ communication
-reductions over DDP and prior state-of-the-art methods at billion-scale LLM training, even in environments prone to system failures. Our findings yield clear guidelines: (i) frequently synchronize
-parameters, and (ii) synchronize optimizer states less often, proportional to their half-lives. These
+optimizer states, we empirically demonstrate convergence alongside $\mathbf{170\times}$ and $\mathbf{2\times}$ communication
+reductions over DDP and prior state-of-the-art methods at billion-scale LLM training, even in environments prone to system failures. Our findings yield clear guidelines: i) \textbf{frequently} synchronize
+parameters, and ii) synchronize optimizer states \textbf{less often}, proportional to their half-lives. These
 insights open avenues for future research, including layer-wise synchronization, adaptive frequencies,
 compressed updates, as well as emerging applications, such as worldwide cross-data center training
 and collaborative training. As training workloads scale, we envision DES-LOC becoming the standard
@@ -595,7 +598,12 @@ for efficient, resilient foundation-model training in data centers and distribut
 All costs for the computational resources used for this work were funded by Flower Labs, and the
 research conducted by a team of researchers from Flower Labs, The University of Cambridge, The
 Institute of Science and Technology of Austria, The University of Warwick, and Mohamed bin
-Zayed University of Artificial Intelligence.
+Zayed University of Artificial Intelligence. Support for university-based researchers came from
+a variety of sources, but in particular, the following funding organizations are acknowledged: the
+European Research Council (REDIAL), the Royal Academy of Engineering (DANTE), the Ministry of
+Education of Romania through the Credit and Scholarship Agency, and the European Union's Horizon
+2020 research and innovation programme under the Marie Sk\l{}odowska-Curie grant agreement No
+101034413.
 
 \bibliography{references}
 \bibliographystyle{iclr2026_conference}

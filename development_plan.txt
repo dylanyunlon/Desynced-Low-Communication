@@ -110,37 +110,39 @@ PDF总页数：54页
 第六位Claude 完成: M126-M150
   范围: Section 6-7 (Related Work + Conclusion + Acknowledgments) tex 1:1校验
   内容:
-    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
-    - pdftoppm渲染PDF page 9-11 (Section 6 Related Work从page 9底部开始)
-    - Section 6 Related Work: 逐段对比nougat与tex, 补全缺失引用/段落
-    - Section 7 Conclusion: 逐段校验, 补全缺失内容
-    - Acknowledgments段校验
-    - template_extraction_section6_7.txt: Section 6-7模板提炼
-    - mapping_database.json: 新增 CCI-CCCXXV (Related Work/Conclusion映射, 25个)
+    - pdftoppm渲染PDF page 9-11, 逐段逐句校验Section 6, 7, Acknowledgments
+    - Section 6 para1: 补全ad-hoc extensions句(Douillard/Charles/Liu/Sani引用)
+    - Section 6 para1: every→\textit{every} 匹配PDF斜体
+    - Section 6 para2: 补全"Other optimizers also track gradient moments"句(4个引用)
+    - Section 6 para2: Local Adam→\textit{Local Adam} 匹配PDF斜体
+    - Section 6 para2: 补全"For further related work...check Section K"结尾句
+    - Section 7: 170×/2×加\mathbf, frequently/less often加\textbf, (i)→i) (ii)→ii)
+    - Acknowledgments: 补全缺失的大学资助详情(ERC REDIAL/RAE DANTE/Romania/EU Horizon)
+    - template_extraction_section6_7.txt: Section 6-7模板提炼(严格句数对齐)
+    - mapping_database.json: 新增 CCI-CCXXIX (29个Related Work/Conclusion映射, 总计288个)
     - 更新 development_plan.txt
   对应论文: Section 6, 7, Acknowledgments
-  强制检查项:
-    1. Section 6段落数必须与PDF一致(约4-5段)
-    2. Section 7段落数必须与PDF一致
-    3. 所有\citep引用必须与nougat一致
-    4. diff检查: 不得丢失Claude-5的Figure 2-7 caption
+  状态: ✅ 已完成
+  句数校验: Section 6 para1=4句✓, para2=5句✓, Section 7=6句✓, Ack=2句✓
+  diff校验: Claude-5的Figure 2-7 caption全部保留✓
+  ⚠️ 遗留给Claude-7: Appendix A (架构细节 Table 3 + 超参数 Table 4)
 
 第七位Claude 完成: M151-M175
-  范围: Section 5.5-5.6 (RQ5, RQ6)
+  范围: Appendix A (Architecture Details + Hyperparameter Sweep)
   内容:
-    - Nesterov外部优化器消融 (700M模型)
-    - Muon内部优化器集成
-    - Figure 6, 7 数据复现
-  对应论文: Section 5.5-5.6
-
-第八位Claude 完成: M176-M200
-  范围: Section 6-7 + Appendix A
-  内容:
-    - 相关工作综述整理
-    - 结论与未来方向文档
-    - 架构细节补充 (Table 3)
-    - 超参数扫描流程 (Table 4)
-  对应论文: Section 6, 7, Appendix A
+    - ⚠️ 必须先 git am 本 patch 后再基于 HEAD 工作（规范3）
+    - pdftoppm渲染PDF page 12-16 (Appendix A)
+    - des_loc_appendix.tex 或 des_loc_reconstructed.tex 中 Appendix A 1:1校验
+    - Table 3 架构细节校验
+    - Table 4 超参数扫描校验
+    - nougat mmd 对比逐段补全
+    - template_extraction_appendixA.txt: Appendix A模板提炼
+    - mapping_database.json: 新增 CCXXX-CCLIV (25个Appendix A映射)
+  对应论文: Appendix A
+  强制检查项:
+    1. Table 3/4 数据必须与PDF逐cell核对
+    2. 段落数必须与nougat mmd一致
+    3. diff检查: 不得丢失Claude-6的Section 6-7修改
 
 第九位Claude 完成: M201-M225
   范围: Appendix B.1-B.4

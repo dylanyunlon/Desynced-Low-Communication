@@ -1,0 +1,24 @@
+================================================================================
+模板提炼: Section 6 Related Work + Section 7 Conclusion + Acknowledgments
+提炼者: Claude-6 (M126-M150)
+================================================================================
+
+--- Section 6 Related Work, Para 1 (同步训练与通信削减) ---
+In synchronous CCI training, workers exchange full CCII or J CCV iteration, incurring N costs linear in model size using CCIII. When hardware is CCIV or widely distributed, N significantly slows CCXII training time as workers need to wait for R to finish. CCVI and CCVII reduce N by performing K local optimization steps before averaging J, decreasing N rounds by a factor of K. CCVIII extensions to adaptive optimizers either keep A states local or CCIX them after each sync, both lacking robust CCXI guarantees.
+
+--- Section 6 Related Work, Para 2 (Adam与Local Adam) ---
+B is popular for pre-training as it scales to larger batches than CCXIII. It uses CCXIV of gradients and their squares, however, its convergence is not guaranteed as it requires β₁ < √β₂ < 1, with large, problem-specific β₂. CCXV also track gradient moments. CCXVI reduces N with local steps but requires syncing A states, which CCXVII the N cost relative to CCVII/DDP, as sync costs scale with the number of states. For further related work, including CCXVIII and CCXIX, check Section K.
+
+--- Section 7 Conclusion, Para 1 ---
+A reconciles N efficiency with rigorous CCXI guarantees in distributed adaptive optimization. By extending theory to the independent R of B and CCXX A states, we empirically demonstrate convergence alongside 170× and 2× N reductions over DDP and prior CCXXI methods at CCXXII-scale LLM training, even in environments prone to CCXXIII. Our findings yield clear guidelines: i) frequently synchronize J, and ii) synchronize A states less often, proportional to their CCXXIV. These insights open avenues for future research, including CCXXV, CCXXVI, CCXXVII, as well as emerging applications, such as CCXXVIII and CCXXIX. As training workloads scale, we envision A becoming the standard for efficient, resilient foundation-model training in data centers and distributed environments.
+
+--- Acknowledgments ---
+[不做模板提炼 — 致谢为项目特定内容,非通用模板]
+
+================================================================================
+句数校验 (nougat mmd vs tex)
+================================================================================
+Section 6 Para 1: mmd=4句, tex=4句 ✓
+Section 6 Para 2: mmd=5句, tex=5句 ✓
+Section 7 Para 1: mmd=6句, tex=6句 ✓
+Acknowledgments:  mmd=2句, tex=2句 ✓
