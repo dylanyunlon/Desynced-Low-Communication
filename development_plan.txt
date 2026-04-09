@@ -213,31 +213,49 @@ PDF总页数：54页
 第十一位Claude 完成: M251-M275
   范围: Appendix C (Further Algorithmic Details) tex 1:1校验
   内容:
-    - ⚠️ 必须基于Claude-10的patch后的HEAD工作（规范3: git am后再工作）
+    - 基于Claude-10的commit c0be652 (HEAD)
     - pdftoppm渲染PDF page 30-32, 逐段逐句校验 Appendix C
-    - nougat mmd中 "## Appendix C"(line 510)到 "## Appendix D"之前
-    - des_loc_appendix.tex: 校验现有Section C内容, 补全缺失段落
-    - C.1 FedOpt扩展: 校验现有2段是否完整(与PDF page 30底部对齐)
-    - C.2 DES-LOC-Adam算法: Algorithm 2逐行校验
-    - C.3 DES-LOC-ADOPT算法: 如有placeholder则补全
-    - 引用键检查: \citet{} 键必须在bib中存在
-    - Takeaway框: 若PDF有boxed Takeaway, 用\fbox{\parbox{0.95\textwidth}{...}}
-    - template_extraction_appendixC.txt: 模板提炼
-    - mapping_database.json: 新增 CCCV-CCCXXIX (25个, C相关映射)
-    - diff检查: 不得丢失Claude-10的B.5-B.9修改
-  对应论文: Appendix C (PDF pages 30-32)
-  强制检查项:
-    1. Algorithm 2: 必须与PDF逐行匹配, 含所有\If/\For/\State
-    2. C.1 para2: 必须含 "Khaled et al., 2025" 引用
-    3. 不得引入新宏包依赖(保持现有preamble)
-    4. diff检查: 不得丢失Claude-10的B.5-B.9 + Claude-8的B.1-B.4
+    - C.1 para1: 补全缺失的 (Reddi et al., 2021) 第二次引用 + "Naturally..."完整句
+    - C.1 para2: 补全缺失的 "Choosing the correct...open research area (Khaled et al., 2025)"
+                  + "...leave the investigations...to future work" 结尾句
+    - C.1: 所有技术术语加\texttt{} (FedOpt/FedAvg/SGD/Local Adam/DES-LOC/ServerOpt)
+    - Algorithm 2 (DES-LOC-Adam): 删除错误的ADOPT update (m变量), 替换为正确的
+      Adam bias-corrected step: d←η/√(v+λ²)⊙u (匹配PDF page 31 line 20)
+    - Algorithm 2: 补全所有\COMMENT注释 (stochastic gradient/clip/sync u/v/x/bias-corrected)
+    - Algorithm 3 (DES-LOC-ADOPT): 从零新增完整24行伪代码 (之前tex中完全缺失)
+      - 变量名: m (非u), Km (非Ku), ε (非λ)
+      - v在m之前更新 (ADOPT因果依赖)
+      - ADOPT更新: m←β₁E[m]+... ĝ/max{√v,ε}
+    - template_extraction_appendixC.txt: 模板提炼(含算法结构对比)
+    - mapping_database.json: 新增 CCCV-CCCXXIX (25个, 总计388个)
+  对应论文: Appendix C (PDF pages 30-31)
+  状态: ✅ 已完成
+  句数校验: C.1 para1=3句✓, C.1 para2=4句✓, Alg2=24行✓, Alg3=24行✓
+  diff校验: Claude-10的B.5-B.9全部保留✓, Section D以后全部保留✓
+  ⚠️ 已知nougat问题: nougat将Algorithm 2/3混淆重复输出, 必须以PDF为准
+  ⚠️ 遗留给Claude-12: Appendix D Part 1 (PDF pages 32-38)
 
 第十二位Claude 完成: M276-M300
-  范围: Appendix D (Part 1)
+  范围: Appendix D Part 1 — DES-LOC-SGDM收敛分析 (期望界)
   内容:
-    - DES-LOC-SGDM收敛分析 (期望界)
-    - Key Lemmas 证明验证
-  对应论文: Appendix D (D.1前半)
+    - ⚠️ 必须基于Claude-11的patch后的HEAD工作 (git am后再工作)
+    - pdftoppm渲染PDF page 32-38, 逐段校验 Appendix D 前半
+    - nougat mmd中 "## Appendix D" 到大约 mmd line ~700
+    - des_loc_appendix.tex: 替换Section D placeholder为完整1:1内容
+    - D引言段: "Here we provide a non-convex convergence analysis..." (PDF page 32 top)
+    - Algorithm 4 (DES-LOC-SGDM): 完整13行伪代码 (概率同步版本, p_x/p_u)
+    - D正文: "In order to facilitate..." 段 (概率→确定性等价说明)
+    - Step 1 (virtual iterates): 定义 x_t, u_t, g_t 均值 + centralized SGDM dynamics
+    - z_t虚拟迭代定义 + 关键性质推导 (z_{t+1}-z_t = -ηg_t)
+    - ⚠️ 数学公式极多: 必须逐符号与PDF核对, nougat OCR在上下标处经常出错
+    - template_extraction_appendixD1.txt: 模板提炼
+    - mapping_database.json: 新增 CCCXXX-CCCLIV (25个, D相关映射)
+  对应论文: Appendix D 前半 (PDF pages 32-35)
+  强制检查项:
+    1. Algorithm 4: 概率同步用 p_x, p_u (非确定性 K_x mod), 匹配PDF page 32
+    2. 所有∑/∏/E[]符号: 必须pdftoppm渲染后逐个核对
+    3. 不得引入新宏包依赖
+    4. diff检查: 不得丢失Claude-11的Appendix C (Algorithm 2修复 + Algorithm 3新增)
 
 第十三位Claude 完成: M301-M325
   范围: Appendix D (Part 2)

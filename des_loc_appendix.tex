@@ -393,14 +393,18 @@ Crucially, standard DDP incurs this communication penalty at \textit{every singl
 Although~\citet{cheng2025convergence} show provable convergence for adaptive inner optimizers in a
 federated optimization framework, their result rests on the assumption that after a period of local
 work, the new global model is created by averaging the local client models. In relation to the larger
-FedOpt literature~\citep{reddi2021adaptive}, the scheme chosen by~\citet{cheng2025convergence} resembles
-that of FedAvg, or where the server optimizer is SGD with the outer learning rate set to one.
+\texttt{FedOpt} literature~\citep{reddi2021adaptive}, the scheme chosen by~\citet{cheng2025convergence} resembles
+that of \texttt{FedAvg}, or where the server optimizer is \texttt{SGD} with the outer learning rate set to one~\citep{reddi2021adaptive}.
+Naturally, the question of whether alternate server optimizers than have been used in prior works
+can also be implemented for \texttt{Local Adam}, and thus \texttt{DES-LOC}, arises.
 
-We argue that indeed DES-LOC's principles can be effectively applied to any FedOpt method and
-not just FedAvg. While using an alternate server optimizer does not have proven convergence
-guarantees as yet, we show in Algorithm~\ref{alg:desloc} that the choice of the ServerOpt is not constrained
-from a practical point-of-view. However, the improvements that DES-LOC provide are related to
+We argue that indeed \texttt{DES-LOC}'s principles can be effectively applied to any \texttt{FedOpt} method and
+not just \texttt{FedAvg}. While using an alternate server optimizer does not have proven convergence
+guarantees as yet, we show in Algorithm~\ref{alg:desloc} that the choice of the \texttt{ServerOpt} is not constrained
+from a practical point-of-view. However, the improvements that \texttt{DES-LOC} provide are related to
 the local optimization procedure, which is orthogonal to the outer optimizer choice.
+Choosing the correct, and most effective, outer optimizer is an open research area~\citep{khaled2025tuning},
+and we leave the investigations of the interactions between \texttt{DES-LOC} and outer optimizers to future work.
 
 \subsection{Deterministic Optimizer-specific Variants of Algorithm 1}
 \label{sec:algorithm_variants}
@@ -417,22 +421,59 @@ the local optimization procedure, which is orthogonal to the outer optimizer cho
 \STATE $T, M \in \mathbb{N}_+$ \COMMENT{total iterations, number of workers}
 \STATE $K_x, K_u, K_v \in \mathbb{N}_+$ \COMMENT{sync periods for parameters, first and second moments}
 \ENSURE $x_T, u_{T-1}, v_{T-1}$
-\STATE for each worker $m$: $x^m_0 = x_0$, $u^m_{-1} = v^m_{-1} = 0$
-\FOR{$t = 0, \ldots, T-1$}
+\STATE for each worker $m$: $x^m_0 = x_0$, $u^m_{-1} = v^m_{-1} = 0$ \COMMENT{local init ($t = -1$ seeds training loop)}
+\FOR{$t = 0, \ldots, T-1$} \COMMENT{training loop}
     \FOR{all workers $m = 0, \ldots, M-1$ \textbf{in parallel}}
-        \STATE $g^m_t \gets \nabla F(x^m_t; \xi^m_t)$
-        \STATE $\hat{g}^m_t \gets \text{clip}(g^m_t, \rho)$
-        \IF{$t \bmod K_u = 0$}
+        \STATE $g^m_t \gets \nabla F(x^m_t; \xi^m_t)$ \COMMENT{stochastic gradient}
+        \STATE $\hat{g}^m_t \gets \text{clip}(g^m_t, \rho)$ \COMMENT{clip to radius $\rho$}
+        \IF{$t \bmod K_u = 0$} \COMMENT{sync $u$}
             \STATE $u^m_t \gets \beta_1 \mathbb{E}_m[u^m_{t-1}] + (1 - \beta_1)\hat{g}^m_t$
         \ELSE
             \STATE $u^m_t \gets \beta_1 u^m_{t-1} + (1 - \beta_1)\hat{g}^m_t$
         \ENDIF
+        \IF{$t \bmod K_v = 0$} \COMMENT{sync $v$}
+            \STATE $v^m_t \gets \beta_2 \mathbb{E}_m[v^m_{t-1}] + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
+        \ELSE
+            \STATE $v^m_t \gets \beta_2 v^m_{t-1} + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
+        \ENDIF
+        \STATE $d^m_t \gets \frac{\eta_t}{\sqrt{v^m_t + \lambda^2}} \odot u^m_t$ \COMMENT{bias-corrected step}
+        \IF{$t \bmod K_x = 0$} \COMMENT{sync $x$}
+            \STATE $x^m_{t+1} \gets \mathbb{E}_m[x^m_t] - d^m_t$
+        \ELSE
+            \STATE $x^m_{t+1} \gets x^m_t - d^m_t$
+        \ENDIF
+    \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{DES-LOC-ADOPT}
+\label{alg:desloc_adopt}
+\begin{algorithmic}[1]
+\REQUIRE Model tensors, Hyper-parameters
+\STATE $x_0, m_{-1}, v_{-1} \in \mathbb{R}^d$ \COMMENT{initial parameter vector and momenta}
+\STATE $\{\eta_t\}_{t=0}^{T-1} \subset \mathbb{R}_{>0}$ \COMMENT{learning rate schedule}
+\STATE $\beta_1, \beta_2 \in [0,1)$ \COMMENT{decay factors}
+\STATE $\rho, \epsilon \in \mathbb{R}_{>0}$ \COMMENT{gradient clipping term, small stability constant}
+\STATE $T, M \in \mathbb{N}_+$ \COMMENT{total iterations, number of workers}
+\STATE $K_x, K_m, K_v \in \mathbb{N}_+$ \COMMENT{sync periods for parameters, first and second moments}
+\ENSURE $x_T$, $m_{T-1}$, $v_{T-1}$
+\STATE for each worker $m$: $x^m_0 = x_0$, $m^m_{-1} = v^m_{-1} = 0$ \COMMENT{local initialization}
+\FOR{$t = 0, \ldots, T-1$}
+    \FOR{all workers $m = 0, \ldots, M-1$ \textbf{in parallel}}
+        \STATE $g^m_t \gets \nabla F(x^m_t; \xi^m_t)$ \COMMENT{stochastic gradient}
+        \STATE $\hat{g}^m_t \gets \text{clip}(g^m_t, \rho)$ \COMMENT{gradient clipping}
         \IF{$t \bmod K_v = 0$}
             \STATE $v^m_t \gets \beta_2 \mathbb{E}_m[v^m_{t-1}] + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
         \ELSE
             \STATE $v^m_t \gets \beta_2 v^m_{t-1} + (1 - \beta_2)(\hat{g}^m_t \odot \hat{g}^m_t)$
         \ENDIF
-        \STATE $m^m_t \gets \beta_1 m^m_{t-1} + (1 - \beta_1) \frac{\hat{g}^m_t}{\max\{\sqrt{v^m_{t-1}}, \epsilon\}}$ \COMMENT{ADOPT update}
+        \IF{$t \bmod K_m = 0$}
+            \STATE $m^m_t \gets \beta_1 \mathbb{E}_m[m^m_{t-1}] + (1 - \beta_1) \frac{\hat{g}^m_t}{\max\{\sqrt{v^m_{t-1}}, \epsilon\}}$
+        \ELSE
+            \STATE $m^m_t \gets \beta_1 m^m_{t-1} + (1 - \beta_1) \frac{\hat{g}^m_t}{\max\{\sqrt{v^m_{t-1}}, \epsilon\}}$ \COMMENT{ADOPT update}
+        \ENDIF
         \STATE $d^m_t \gets \eta_t m^m_t$
         \IF{$t \bmod K_x = 0$}
             \STATE $x^m_{t+1} \gets \mathbb{E}_m[x^m_t] - d^m_t$

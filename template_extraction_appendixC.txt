@@ -1,0 +1,60 @@
+================================================================================
+模板提炼: Appendix C — Further Algorithmic Details of DES-LOC
+提炼者: Claude-11 (M251-M275)
+对应PDF: pages 30-31
+================================================================================
+
+【Section C 标题】
+C Further Algorithmic Details of A
+
+【C.1 Extension to FedOpt — para1 (4句)】
+Although CCCV show provable convergence for CCCVI in a CCCVII framework, their result rests on the assumption that after a period of CCCVIII, the new global model is created by averaging the CCCIX. In relation to the larger FedOpt literature (CCCX), the scheme chosen by CCCV resembles that of FedAvg, or where the CCCXI is SGD with the outer CCCXII set to one (CCCX). Naturally, the question of whether alternate CCCXI than have been used in prior works can also be implemented for H, and thus A, arises.
+
+【C.1 Extension to FedOpt — para2 (4句)】
+We argue that indeed A's principles can be effectively applied to any FedOpt method and not just FedAvg. While using an alternate CCCXI does not have proven convergence guarantees as yet, we show in Algorithm 1 that the choice of the ServerOpt is not constrained from a CCCXIII point-of-view. However, the improvements that A provide are related to the CCCXIV, which is orthogonal to the outer CCCXV choice. Choosing the correct, and most effective, outer CCCXV is an open research area (CCCXVI), and we leave the investigations of the interactions between A and outer optimizers to future work.
+
+【C.2 标题】
+C.2 Deterministic Optimizer-specific Variants of Algorithm 1
+
+【Algorithm 2: DES-LOC-Adam (24行伪代码)】
+模板结构:
+  REQUIRE: Model tensors, Hyper-parameters
+  行1-6: 变量声明 (x₀/u/v ∈ ℝᵈ, η schedule, β₁β₂, ρλ, T/M, Kx/Ku/Kv)
+  ENSURE: xT, uT-1, vT-1
+  行7: worker初始化
+  行8-9: 双层for循环 (t迭代, m并行worker)
+  行10-11: 梯度计算 + clip
+  行12-15: if Ku sync u, else local u
+  行16-19: if Kv sync v, else local v
+  行20: d ← η/√(v+λ²) ⊙ u  (Adam bias-corrected step)
+  行21-24: if Kx sync x, else local x
+
+关键区别 vs Algorithm 3: Adam用 η/√(v+λ²)⊙u, ADOPT用 ηm (m含ADOPT更新)
+
+【Algorithm 3: DES-LOC-ADOPT (24行伪代码)】
+模板结构:
+  REQUIRE: Model tensors, Hyper-parameters
+  行1-6: 变量声明 (x₀/m/v ∈ ℝᵈ, η schedule, β₁β₂, ρε, T/M, Kx/Km/Kv)
+  ENSURE: xT, mT-1, vT-1
+  行7: worker初始化
+  行8-9: 双层for循环
+  行10-11: 梯度计算 + clip
+  行12-15: if Kv sync v, else local v  ← 注意: v在m之前更新(ADOPT要求)
+  行16-19: if Km sync m (ADOPT更新 ĝ/max{√v,ε}), else local m
+  行20: d ← ηm
+  行21-24: if Kx sync x, else local x
+
+关键区别 vs Algorithm 2:
+  - 动量变量名: Adam用u, ADOPT用m
+  - 同步周期: Adam用Ku, ADOPT用Km
+  - 稳定项: Adam用λ (ℓ₂), ADOPT用ε (小常数)
+  - 步长: Adam= η/√(v+λ²)⊙u, ADOPT= η·m (ADOPT更新已含v归一化)
+  - v更新顺序: ADOPT中v必须在m之前更新 (因为m依赖v_{t-1})
+
+================================================================================
+句数校验:
+  C.1 para1 = 3句 (含引用) ✓ (PDF: 3句)
+  C.1 para2 = 4句 ✓ (PDF: 4句)
+  Algorithm 2 = 24行伪代码 ✓ (PDF: 24行)
+  Algorithm 3 = 24行伪代码 ✓ (PDF: 24行)
+================================================================================
