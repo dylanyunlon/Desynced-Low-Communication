@@ -1,0 +1,92 @@
+================================================================================
+模板提炼: Appendix D Part 1 — DES-LOC-SGDM Convergence Analysis (Expectation Bounds)
+提炼者: Claude-12 (M276-M300)
+对应PDF: pages 32-35
+================================================================================
+
+【Section D 标题】
+D Convergence Analysis of A-CCCXXXI (in expectation bounds)
+
+【D intro (1句)】
+Here we provide a CCCXXX of the proposed A approach applied to the CCCXXXI optimizer which has a CCCXXXII, momentum). The complete description of the algorithm can be found in Algorithm 4.
+
+【Algorithm 4: DES-LOC-SGDM (13行伪代码)】
+模板结构:
+  REQUIRE: Model tensors
+  行1-2: 变量声明 (x₀ ∈ ℝᵈ, u₋₁ ∈ ℝᵈ seed=0)
+  REQUIRE: Hyper-parameters
+  行3-7: η schedule, β∈[0,1), T, M, p_x=1/K_x, p_u=1/K_u
+  ENSURE: x_T, u_{T-1}^m
+  行8: worker初始化 (x₀^m=x₀, u₋₁^m=0)
+  行9-10: 双层for循环 (t迭代, m并行worker)
+  行11: 梯度计算 g_t^m ← ∇F_m(x_t^m; ξ)
+  行12: u sync/local (cases with p_u / 1-p_u)
+  行13: x sync/local (cases with p_x / 1-p_x)
+
+关键: Algorithm 4使用CCCXXXIII (概率p_x, p_u), 非确定性K mod
+
+【概率等价段 (2句)】
+In order to facilitate the technical presentation, we model synchronization frequencies by assigning CCCXXXIII to each averaging event. For example, the parameters are synchronized with probability p_x = 1/K_x, which is CCCXXXIV. Similarly, momentum synchronization happens with probability p_u = 1/K_u, which can differ from p_x.
+
+【Step 1: virtual iterates (4段)】
+para1 定义: x̄_t = CCCXXXVII, ū_t = CCCXXXVIII, ḡ_t = CCCXXXIX.
+para2 CCCXXXVI: u_t = βu_{t-1}+(1-β)g_t, x_{t+1} = x_t - ηu_t.
+para3 z_t定义: z_t = x_t/(1-β) - βx_{t-1}/(1-β), CCCXXXV.
+para4 关键性质: z_{t+1}-z_t = -ηg_t (虚拟迭代跟随平均梯度).
+
+【Step 2: CCCXL (1段)】
+Apply L-smoothness: f(z_{t+1}) ≤ f(z_t) + ⟨∇f(z_t), z_{t+1}-z_t⟩ + L/2||z_{t+1}-z_t||².
+分解为 term I + term II + term III.
+
+【Step 3a: CCCXLI (5行推导)】
+E⟨∇f(x_t), z_{t+1}-z_t⟩ → polarization identity → Lipschitz → Lemma 3 bound.
+最终: ≤ -η/2·E||∇f(x_t)||² + ηL²/(2M)·Σ E||x_t-x_t^m||².
+
+【Step 3b: CCCXLII (3行推导)】
+Young's inequality with parameter ρ → Lemma 2 bound.
+最终: ≤ ηρL²/2·E||z_t-x_t||² + η/(2ρ)·E||Σ∇f_m(x_t^m)/M||².
+
+【Step 3c: CCCXLIII (4行推导)】
+Variance decomposition → bounded noise σ².
+最终: ≤ η²L/(2M)·σ² + η²L/2·E||Σ∇f_m(x_t^m)/M||².
+
+【Step 3abc: CCCXLIV (合并)】
+Combine I+II+III, substitute Lemma 2/3 bounds.
+经过代入和整理，得到含6项的one-step progress bound.
+
+【Step 4 final (3段)】
+para1 平均: telescope + Lemma 1,2 substitution → 含η,ρ,ψ的大bound.
+para2 选择ρ=2: 三个step-size条件 → CCCXLVIII定义:
+  η₀ = 1/(4L)·min(1-β, 1/(6√(ψ·max(1,B²-1)))).
+para3 CCCXLIX: 选η=min(η₀,1/√T) 得到:
+  1/T·Σ E||∇f(x_t)||² = 4/√T·(f(x₀)-f* + Lσ²/(2M)) + O((1+CCCL)/T).
+
+【D.1 标题】
+D.1 Extension to Adam optimizer
+
+【D.1 intro (2句)】
+Here we discuss extension of the previous analysis for the Adam optimizer including the second-order momentum. The synchronization probability p_v can differ from p_x and p_u.
+
+【Assumption 4 (1句)】
+CCCLII: For any iterate t≥0 and worker m, ||g_t^m||₂ ≤ G.
+
+【D.1 Step 1: preconditioning (2段)】
+para1 CCCLIII: Γ_t^m = diag⁻¹ᐟ²(ṽ_t^m + λ²), 定义x̄,ū,v̄,ṽ̄,ḡ.
+para2 Then u_t = β₁u_{t-1}+(1-β₁)g_t, x_{t+1} = x_t - η·E_m[Γ_t^m u_t^m].
+
+================================================================================
+句数校验:
+  D intro = 1句 ✓ (PDF: 1句, 2个子句)
+  Algorithm 4 = 13行 ✓ (PDF page 32: 13行)
+  概率等价段 = 2句 ✓ (PDF: 2句)
+  Step 1 = 4段 ✓ (PDF: 定义→dynamics→z_t→key property)
+  Step 2 = 1段 ✓ (PDF: smoothness application)
+  Step 3a = 5行推导 ✓ (PDF: 5个≤/=行)
+  Step 3b = 3行推导 ✓ (PDF: 3行)
+  Step 3c = 4行推导 ✓ (PDF: 4行)
+  Step 3abc = 合并 ✓ (PDF page 34 top)
+  Step 4 = 3段 ✓ (PDF page 34-35)
+  D.1 intro = 2句 ✓ (PDF page 35 bottom)
+  Assumption 4 = 1句 ✓
+  D.1 Step 1 = 2段 ✓ (PDF page 35 bottom)
+================================================================================

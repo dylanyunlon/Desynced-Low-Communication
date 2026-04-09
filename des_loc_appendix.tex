@@ -487,11 +487,230 @@ and we leave the investigations of the interactions between \texttt{DES-LOC} and
 
 %=============================================================================
 % Appendix D: Convergence Analysis of DES-LOC-SGDM
-% NOTE: Full 8-page proof deferred to Claude instances 12-13 (M276-M325)
+% Claude-12 (M276-M300): PDF pages 32-35 (SGDM proof + D.1 Adam extension start)
 %=============================================================================
 \section{Convergence Analysis of DES-LOC-SGDM (in expectation bounds)}
 \label{sec:sgdm_proof}
-% Placeholder — full proof spans pages 32-43 of the PDF
+
+Here we provide a non-convex convergence analysis of the proposed \texttt{DES-LOC} approach applied to the SGDM optimizer which has a single state ($N=1$, momentum). The complete description of the algorithm can be found in Algorithm~\ref{alg:desloc_sgdm}.
+
+\begin{algorithm}[ht]
+\caption{\texttt{DES-LOC-SGDM}}
+\label{alg:desloc_sgdm}
+\begin{algorithmic}[1]
+\REQUIRE \textbf{Model tensors}
+\STATE $x_0 \in \mathbb{R}^d$ --- initial parameter vector
+\STATE $u_{-1} \in \mathbb{R}^d$ --- seed for the momentum, initialised to $\mathbf{0}$
+\REQUIRE \textbf{Hyper-parameters}
+\STATE $\{\eta_t\}_{t=0}^{T-1} \subset \mathbb{R}_{>0}$ --- step-size schedule
+\STATE $\beta \in [0,1)$ --- Momentum decay factor
+\STATE $T \in \mathbb{N}_+$ --- total optimisation iterations
+\STATE $M \in \mathbb{N}_+$ --- number of workers
+\STATE $p_x = \frac{1}{K_x},\; p_u = \frac{1}{K_u} \in [0,1]$ --- synchronization probabilities for parameters and momentum
+\ENSURE $x_T$, $u_{T-1}^m$
+\STATE \textbf{for each worker} $m$: $x_0^m = x_0,\; u_{-1}^m = 0$ \hfill local init ($t=-1$ seeds)
+\FOR{$t = 0, \ldots, T-1$} \hfill training loop
+    \FOR{all workers $m = 0, \ldots, M-1$ \textbf{in parallel}}
+        \STATE $g_t^m \leftarrow \nabla F_m(x_t^m; \xi_t^m)$ \hfill stochastic gradient
+        \STATE $u_t^m \leftarrow \begin{cases} \mathbb{E}_m[\beta u_{t-1}^m + (1-\beta) g_t^m], & \text{with probability } p_u \\ \beta u_{t-1}^m + (1-\beta) g_t^m, & \text{with probability } 1-p_u \end{cases}$ \hfill sync $u$
+        \STATE $x_{t+1}^m \leftarrow \begin{cases} \mathbb{E}_m[x_t^m - \eta_t u_t^m], & \text{with probability } p_x \\ x_t^m - \eta_t u_t^m, & \text{with probability } 1-p_x \end{cases}$ \hfill sync $x$
+    \ENDFOR
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+In order to facilitate the technical presentation, we model synchronization frequencies by assigning probabilities to each averaging event. For example, the parameters $x_t^m$ are synchronized with the probability $p_x = \frac{1}{K_x}$, which is statistically equivalent to performing the averaging in every $\frac{1}{p_x} = K_x$ iteration. Similarly, momentum $u_t^m$ synchronization happens with probability $p_u = \frac{1}{K_u}$, which can differ from $p_x$.
+
+\paragraph{Step 1 (virtual iterates).} For each step $t \geq 0$, denote the average parameters, momentum and gradient as follows:
+\[
+x_t \stackrel{\text{def}}{=} \mathbb{E}_m[x_t^m], \quad
+u_t \stackrel{\text{def}}{=} \mathbb{E}_m[u_t^m], \quad
+g_t \stackrel{\text{def}}{=} \mathbb{E}_m[g_t^m].
+\]
+Then these averaged variables follow the ``standard'' centralized SGDM dynamics:
+\begin{align*}
+u_t &= \beta u_{t-1} + (1-\beta) g_t \\
+x_{t+1} &= x_t - \eta u_t.
+\end{align*}
+Letting $x_{-1} = x_0$, define the global virtual iterations as follows
+\[
+z_t \stackrel{\text{def}}{=} \frac{1}{1-\beta} x_t - \frac{\beta}{1-\beta} x_{t-1}, \quad t \geq 0.
+\]
+The key property of this virtual iterates we are going to exploit in the next steps is that they follow averaged gradients, namely for any $t \geq 0$ we have
+\begin{align*}
+z_{t+1} - z_t &= \frac{1}{1-\beta}(x_{t+1} - x_t) - \frac{\beta}{1-\beta}(x_t - x_{t-1}) \\
+&= -\frac{\eta}{1-\beta} u_t + \frac{\eta\beta}{1-\beta} u_{t-1}
+ = -\frac{\eta}{1-\beta}(u_t - \beta u_{t-1}) = -\eta g_t.
+\end{align*}
+
+\paragraph{Step 2 (smoothness over virtual iterates).} Then we apply smoothness of the global loss function $f$ over these global virtual iterates.
+\begin{align*}
+f(z_{t+1}) &\leq f(z_t) + \langle \nabla f(z_t), z_{t+1} - z_t \rangle + \frac{L}{2}\|z_{t+1} - z_t\|^2 \\
+&= f(z_t) + \langle \underbrace{\nabla f(x_t), z_{t+1} - z_t}_{I} \rangle
+  + \langle \underbrace{\nabla f(z_t) - \nabla f(x_t), z_{t+1} - z_t}_{II} \rangle
+  + \underbrace{\frac{L}{2}\|z_{t+1} - z_t\|^2}_{III}.
+\end{align*}
+In the next step, we separately bound each term appearing in the above bound.
+
+\paragraph{Step 3a (one step progress).} Bounding term I.
+\begin{align*}
+&\mathbb{E}\langle \nabla f(x_t), z_{t+1} - z_t \rangle \\
+&= -\eta \mathbb{E}\left\langle \nabla f(x_t), \frac{1}{M}\sum_{m=1}^{M} g_t^m \right\rangle
+ = -\eta \mathbb{E}\left\langle \nabla f(x_t), \frac{1}{M}\sum_{m=1}^{M} \nabla f_m(x_t^m) \right\rangle \\
+&= -\frac{\eta}{2}\mathbb{E}\|\nabla f(x_t)\|^2
+  -\frac{\eta}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2
+  +\frac{\eta}{2}\mathbb{E}\left\|\nabla f(x_t) - \frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&= -\frac{\eta}{2}\mathbb{E}\|\nabla f(x_t)\|^2
+  -\frac{\eta}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2
+  +\frac{\eta}{2M}\sum_{m=1}^{M}\mathbb{E}\|\nabla f_m(x_t) - \nabla f_m(x_t^m)\|^2 \\
+&\leq -\frac{\eta}{2}\mathbb{E}\|\nabla f(x_t)\|^2
+  -\frac{\eta}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2
+  +\frac{\eta L^2}{2M}\sum_{m=1}^{M}\underbrace{\mathbb{E}\|x_t - x_t^m\|^2}_{\text{Lemma~\ref{lem:drift}}}.
+\end{align*}
+
+\paragraph{Step 3b (one step progress).} Bounding term II.
+\begin{align*}
+&\mathbb{E}\langle \nabla f(z_t) - \nabla f(x_t), z_{t+1} - z_t \rangle
+= -\eta \mathbb{E}\left\langle \nabla f(z_t) - \nabla f(x_t), \frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m) \right\rangle \\
+&\leq \frac{\eta\rho}{2}\mathbb{E}\|\nabla f(z_t) - \nabla f(x_t)\|^2
+  + \frac{\eta}{2\rho}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&\leq \frac{\eta\rho L^2}{2}\underbrace{\mathbb{E}\|z_t - x_t\|^2}_{\text{Lemma~\ref{lem:virtual_drift}}}
+  + \frac{\eta}{2\rho}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2.
+\end{align*}
+
+\paragraph{Step 3c (one step progress).} Bounding term III.
+\begin{align*}
+\frac{L}{2}\mathbb{E}\|z_{t+1} - z_t\|^2
+&= \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M} g_t^m\right\|^2 \\
+&= \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M} g_t^m - \nabla f_m(x_t^m)\right\|^2
+  + \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&= \frac{\eta^2 L}{2M^2}\sum_{m=1}^{M}\mathbb{E}\|g_t^m - \nabla f_m(x_t^m)\|^2
+  + \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&\leq \frac{\eta^2 L}{2M}\sigma^2
+  + \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2.
+\end{align*}
+
+\paragraph{Step 3abc (one step progress).} Combining previous bounds.
+\begin{align*}
+\mathbb{E}f(z_{t+1}) - \mathbb{E}f(z_t)
+&\leq \mathbb{E}\underbrace{\langle \nabla f(x_t), z_{t+1} - z_t \rangle}_{I}
+  + \mathbb{E}\underbrace{\langle \nabla f(z_t) - \nabla f(x_t), z_{t+1} - z_t \rangle}_{II}
+  + \mathbb{E}\underbrace{\frac{L}{2}\|z_{t+1} - z_t\|^2}_{III} \\
+&\leq -\frac{\eta}{2}\mathbb{E}\|\nabla f(x_t)\|^2
+  -\frac{\eta}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2
+  +\frac{\eta L^2}{2M}\sum_{m=1}^{M}\underbrace{\mathbb{E}\|x_t - x_t^m\|^2}_{\text{Lemma~\ref{lem:drift}}} \\
+&\quad +\frac{\eta\rho L^2}{2}\underbrace{\mathbb{E}\|z_t - x_t\|^2}_{\text{Lemma~\ref{lem:virtual_drift}}}
+  +\frac{\eta}{2\rho}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&\quad +\frac{\eta^2 L}{2M}\sigma^2
+  + \frac{\eta^2 L}{2}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2.
+\end{align*}
+
+\paragraph{Step 4 (final).} Now we average over the iterates and apply the bounds derived in Lemmas~\ref{lem:virtual_drift},~\ref{lem:drift}.
+\begin{align*}
+\frac{\mathbb{E}[f(z_T) - f(z_0)]}{T}
+&= \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}[f(z_{t+1}) - f(z_t)] \\
+&\leq -\frac{\eta}{2T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2
+  - \frac{\eta}{2}\left(1 - \frac{1}{\rho} - \eta L\right)
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&\quad + \frac{\eta\rho L^2}{2}\underbrace{\frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|z_t - x_t\|^2}_{\text{Lemma~\ref{lem:virtual_drift}}}
+  + \frac{\eta L^2}{2M}\underbrace{\frac{1}{TM}\sum_{t=0}^{T-1}\sum_{m=1}^{M}\mathbb{E}\|x_t - x_t^m\|^2}_{\text{Lemma~\ref{lem:drift}}}
+  + \frac{\eta^2 L}{2M}\sigma^2 \\
+&\leq -\frac{\eta}{2T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2
+  - \frac{\eta}{2}\left(1 - \frac{1}{\rho} - \eta L\right)
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2
+  + \frac{\eta^2 L}{2M}\sigma^2 \\
+&\quad + \frac{\eta\rho L^2}{2}\left(
+    \frac{\eta^2\beta^2}{(1-\beta)^2 M}\sigma^2
+    + \frac{\eta^2\beta^2}{(1-\beta)^2}\frac{1}{T}\sum_{\tau=0}^{T-1}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_\tau^m)\right\|^2
+  \right) \\
+&\quad + \frac{\eta L^2}{2}\left(
+    12\eta^2(B^2-1)\psi \cdot \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2
+    + 4\eta^2\psi(\sigma^2 + 3G^2)
+  \right) \\
+&\leq -\frac{\eta}{2}\left(1 - 12\eta^2 L^2(B^2-1)\psi\right)
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2 \\
+&\quad - \frac{\eta}{2}\left(1 - \frac{1}{\rho} - \eta L - \frac{\eta^2\beta^2\rho L^2}{(1-\beta)^2}\right)
+    \frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\left\|\frac{1}{M}\sum_{m=1}^{M}\nabla f_m(x_t^m)\right\|^2 \\
+&\quad + \frac{\eta^2 L}{2M}\sigma^2
+  + \frac{\eta^3\rho L^2\beta^2}{2(1-\beta)^2 M}\sigma^2
+  + 2\eta^3 L^2\psi(\sigma^2 + 3G^2).
+\end{align*}
+
+Next, we choose $\rho = 2$ and step size $\eta$ such that
+\begin{align*}
+12\eta^2 L^2(B^2-1)\psi &\leq \frac{1}{2} & &\Longleftrightarrow \quad \text{to bound the first term} \\
+\eta L + \frac{2\eta^2\beta^2 L^2}{(1-\beta)^2} &\leq \frac{1}{2} & &\Longleftrightarrow \quad \text{to bound the second term} \\
+12\eta^2 L^2\psi &\leq \frac{1}{2} & &\Longleftrightarrow \quad \text{from Lemma~\ref{lem:drift}}
+\end{align*}
+Note that
+\[
+\eta_0 \stackrel{\text{def}}{=} \frac{1}{4L}\min\!\left(1-\beta,\; \frac{1}{6\sqrt{\psi\max(1,B^2-1)}}\right)
+\]
+satisfies all three bounds. Then, with any $\eta \leq \eta_0$ we get
+\begin{align*}
+\frac{\mathbb{E}[f(z_T) - f(z_0)]}{T}
+&\leq -\frac{\eta}{4T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2 \\
+&\quad + \frac{\eta^2 L}{2M}\sigma^2
+  + \frac{\eta^3\rho L^2\beta^2}{2(1-\beta)^2 M}\sigma^2
+  + 2\eta^3 L^2\psi(\sigma^2 + 3G^2).
+\end{align*}
+Noticing that $z_0 = x_0$ and $f^* \leq f(z_T)$, we have
+\[
+\frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2
+\leq \frac{4(f(x_0) - f^*)}{\eta T}
+  + \frac{2\eta L}{M}\sigma^2
+  + \frac{4\eta^2 L^2\beta^2}{(1-\beta)^2 M}\sigma^2
+  + 8\eta^2 L^2\psi(\sigma^2 + 3G^2).
+\]
+Furthermore, choosing $\eta = \min(\eta_0, \frac{1}{\sqrt{T}})$, we get the following rate:
+\begin{align*}
+&\frac{1}{T}\sum_{t=0}^{T-1}\mathbb{E}\|\nabla f(x_t)\|^2 \\
+&\leq \max\!\left(1, \frac{1}{\eta_0\sqrt{T}}\right)\frac{4(f(x_0)-f^*)}{\sqrt{T}}
+  + \frac{2L\sigma^2}{M\sqrt{T}}
+  + \frac{4L^2\beta^2\sigma^2}{(1-\beta)^2 MT}
+  + \frac{8L^2\psi(\sigma^2+3G^2)}{T} \\
+&\leq \frac{4(f(x_0)-f^*)}{\sqrt{T}}
+  + \frac{2L\sigma^2}{M\sqrt{T}}
+  + \frac{4(f(x_0)-f^*)}{\eta_0 T}
+  + \frac{4L^2\beta^2\sigma^2}{(1-\beta)^2 MT}
+  + \frac{8L^2\psi(\sigma^2+3G^2)}{T} \\
+&= \frac{4}{\sqrt{T}}\left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right)
+  + \mathcal{O}\!\left(\frac{1+\psi}{T}\right).
+\end{align*}
+
+%-----------------------------------------------------------------------------
+% D.1 Extension to Adam optimizer (PDF page 35 bottom)
+%-----------------------------------------------------------------------------
+\subsection{Extension to Adam optimizer}
+\label{sec:adam_extension}
+
+Here we discuss extension of the previous analysis for the Adam optimizer including the second-order momentum in the analysis. The addition is similar to the first-order momentum while the synchronization probability $p_v$ can differ from other probabilities $p_x$ and $p_u$. The complete description of the algorithm can be found in Algorithm~\ref{alg:desloc_adam_prob}. Instead of bounded heterogeneity Assumption~3, in this analysis we use stronger condition mentioned below:
+
+\begin{assumption}[Bounded gradient]
+\label{ass:bounded_grad}
+For any iterate $t \geq 0$ and worker $m$, the local stochastic gradient is bounded, namely $\|g_t^m\|_2 \leq G$.
+\end{assumption}
+
+This condition facilitates the analysis by providing uniform upper bounds for gradients/momentum variables and is commonly used in the analysis of adaptive optimization.
+
+\paragraph{Step 1 (preconditioning and virtual iterates).} Let $\Gamma_t^m \stackrel{\text{def}}{=} \mathbf{diag}^{-1/2}(\tilde{v}_t^m + \lambda^2)$ be the preconditioning matrix and for each step $t \geq 0$, denote the averaged variables
+\[
+x_t \stackrel{\text{def}}{=} \mathbb{E}_m[x_t^m], \quad
+u_t \stackrel{\text{def}}{=} \mathbb{E}_m[u_t^m], \quad
+v_t \stackrel{\text{def}}{=} \mathbb{E}_m[v_t^m], \quad
+\tilde{v}_t \stackrel{\text{def}}{=} \mathbb{E}_m[\tilde{v}_t^m], \quad
+g_t \stackrel{\text{def}}{=} \mathbb{E}_m[g_t^m].
+\]
+Then
+\begin{align*}
+u_t &= \beta_1 u_{t-1} + (1-\beta_1) g_t \\
+x_{t+1} &= x_t - d_t = x_t - \eta\,\mathbb{E}_m[\Gamma_t^m u_t^m].
+\end{align*}
+
+% NOTE for Claude-13: Continue from here with Algorithm 5 (DES-LOC-Adam probabilistic),
+% virtual iterates z_t for Adam, the full z_{t+1}-z_t derivation with U_t/V_t terms,
+% Step 2 (smoothness), Steps 3a-3e, and the summary bounds.
+% Corresponds to PDF pages 36-39.
 
 %=============================================================================
 % Appendix E: High-probability bounds for DES-LOC-Adam
