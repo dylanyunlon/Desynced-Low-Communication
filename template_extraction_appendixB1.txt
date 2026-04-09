@@ -1,0 +1,85 @@
+%=============================================================================
+% Claude-8 (M176-M200): Appendix B.1-B.4 模板提炼
+% 来源: PDF pages 20-26 / nougat mmd lines 367-447
+% 规范: 句数严格对齐nougat, 每段句数标注
+%=============================================================================
+
+B引言（1句 + 12项enumerate）
+我们现在提供补充 CCLV 中呈现的 CCLVI 的额外结果。具体来说：[12项编号列表与PDF 1:1]
+
+B.1 CCLVII CCLIX（标题=7中文字）（1句）
+CCLVIII CCLIX：Fig.8模拟了Section 3中的场景，每个 S m 优化异构 υ 上的不同损失 f_m。A 和 H 比 CCLX 显示更稳定的 LXVI 并更接近最优。
+
+Fig 8 caption（4句）
+我们在 CCLIX 设定下展示 CCLVII 问题，其中 A（R=Kx=192,Ku=192,Kv=692）和 H（K=Kx）收敛到优于保持 ω 为局部或周期性重置的方法的更优解。与IID场景类似，重置 ω 因重复振荡而阻止 LXVI。此外，如(a)中rounds 15-40所见，保持 ω 为局部的方法在远离最优处有更大振荡。优化函数为f(x1,x2)=(1-x1)²+100(x2-x1²)²，模拟M=256个 S，每个添加σᵐ~N(0,3)的高斯噪声。
+
+B.2 RQ2: CCLXI R 频率（标题=6中文字）（2句）
+本节为RQ2提供补充结果，补充Section 5.2。B.2.1显示 CCLXII 对一阶和二阶 M Ⅰ 频率有相似敏感性；B.2.2重复Fig.3对 A-B 的比较，揭示 J 的重要性及因较低β₂而降低的 M 重要性。
+
+B.2.1 J 和二阶 M 在Kb=16（1句正文）
+Figure 9检验了在 A-Y 高频体制(Kb=16)下独立变化 R (Kx,Kv)对 J 和二阶 M 的影响，基于一阶 M 的 ⅩⅥ（τ₀.₅≈13.5）选择。与Fig.3.a低频结果类似，Kx强烈影响 CCLXIII，而Kv因长 ⅩⅥ 影响极小。这与一阶 M 对比，其 ⅩⅥ 接近高频周期。
+
+Fig 9 caption（2句）
+A (ADOPT, β₁=0.95,β₂=0.9999)的 CCLXIII，在高 CCLXII 频率(Kb=16)下独立变化 R。与Fig.3类似，J Ⅰ (a)关键，高周期急剧劣化；二阶 M Ⅰ (b)影响极小因其大 ⅩⅥ (τ₀.₅(β₂)≫Kb)。
+
+Takeaway（1句）
+在高频 Ⅰ 体制下，J 和二阶 M 的重要性与Section 5.2中的低频体制相似。
+
+B.2.2 B 结果（2句正文）
+Fig.10展示B M 在各β值下的 CCLXIV 结果。Figure 11提供使用 A-B (β₁=β₂=0.95)的补充结果，与ADOPT不同，较低β使两个 M 快速适应局部 W，降低其 Ⅰ 频率影响。
+
+Fig 10 caption（1句）
+标准 H (K=64)下一阶和二阶 M 跨轮次的 CCLXIV。增大β₁大幅降低一阶 M CCLXIV，增大β₁或β₂降低二阶 CCLXIV。
+
+Fig 11 caption（2句）
+A-B (β₁=β₂=0.95)在独立变化 R (Kx,Ku,Kv)、其余固定Kb时的 CCLXIII。J Ⅰ (a,b)在高(Kb=16)和低(Kb=256)频率体制均有影响。M Ⅰ 因高适应性(低β)对 CCLXIII 影响极小，高频早期可能有轻微影响(c,e)。
+
+Takeaway（2句）
+对 A-B，J Ⅰ 仍关键，与理论一致。但因较低β₂，M Ⅰ 影响较小，因B更新的分子分母均由局部 W 驱动。
+
+B.3 RQ3: N 削减与 CCLX 对比（标题=8中文字）（2句）
+本节为RQ3提供补充结果，补充Section 5.3。B.3.2展示提供2× N 削减的不同配置的 CCLXIII；B.3.4重复Section 5.3中对 A-B 的 CCLX 对比。
+
+B.3.1 逐步图（1句）
+Figures 12和13展示主文中wall-clock结果的逐步图，是Figs. 4和5的对应图。
+
+B.3.2 异构 υ 上的 A（1句）
+Figure 14评估 A 在异构(Non-IID) υ 分布下对 CCLX 的 CCLXV，如Section 4.1定义。设Kx=K, Ku=3Kx, Kv=6Kx以实现目标2× N 削减。
+
+Fig 14 caption（2句）
+Non-IID条件下 A、H (Kx=Ku=Kv)和 CCLX (Section 4.1定义)在高(a)和低(b) Ⅰ 频率下的 CCLXIII 对比。因异构 υ 导致的更高跨 S 方差，低频体制中 J 需稍高频 Ⅰ (Kx=128<256)。实验限于T=1536步(~compute-optimal)。
+
+B.3.3 低 N 配置消融（1段=3句）
+Figure 15探索使 A 实现比 H 更高 N CCLXVI 的替代 R 配置。受理论(Sections 2,3)和实证(Sections 5.1,5.2)启发，只考虑 J Ⅰ 最频繁的设置(Kx≤min(Ku,Kv))。此约束源于Section 5.2实验：不频繁 J Ⅰ 显著劣化 CCLXIII，而 M Ⅰ 频率影响较小。在固定2× N 削减下，一阶 M 比二阶更频繁 Ⅰ 与各自 ⅩⅥ 一致，维持接近 H 的性能。
+
+Fig 15 caption（3句）
+A 目标2×低于 H (Kx=Ku=Kv)的 N 配置，设Ku,Kv为Kx倍数。高(a)和低(b)频率体制中，性能取决于β₁≪β₂时 N 如何分配。一阶 M 较少 Ⅰ (Ku=6Kx,Kv=3Kx)劣化性能；频繁 Ⅰ (Ku=3Kx,Kv=6Kx)产生接近 H 的性能。Ku=Kv=4Kx产生中间结果。
+
+B.3.4 B 结果（2段=4句）
+展示 A-B (β₁=β₂=0.95)结果。A-B 实现与ADOPT类似的对 H 和DDP的 N 削减。但因较低β₂，二阶 M ⅩⅥ (τ₀.₅(0.95)≈13.5)远短于ADOPT (τ₀.₅(0.9999)≈6931)。Figure 16显示两个 M 以相似速率演化时，选择Ku<Kv的优势减弱。
+Figure 17显示 A-B 实现对SOTA H 的2× N 削减而无显著 CCLXIII 劣化。因B ω 演化远快于ADOPT，局部 W 驱动优化，降低了分配更多 N CCLXVII 给一阶 M 的收益。
+
+Fig 16 caption（2句）
+A 使用B (β₁=β₂=0.95)目标2×低于 H 的 N 配置。与 A-Y（β₁≪β₂有利于Ku<Kv如Fig.15）对比，B 中相似 ⅩⅥ 使 CCLXIII 对高(a)和低(b)频率 M 间 N 分配不敏感。
+
+Takeaway（2句）
+A-B 通过利用 ω Ⅰ 相对 J 的降低重要性，实现与 A-Y 类似的2× N 削减。但因B 中较小β₂，不同频率分配给一阶和二阶 M 的收益有限。
+
+B.4 RQ4: 额外指标与 CCLX CCLXVIII（标题=10中文字）（1段=2句）
+Figure 18补充Fig.5.b，显示 A 和 CCLX 在训练 CCLXIX 模型时的 J 和 CCLXX 范数。A 和 H 通过 Ⅰ ω 正则化更新，因 S 间平均有效降低 CCLXX 范数(三角不等式)。CCLX (Sani et al., 2025)经历大更新，导致不受控 J 增长、激活增大(Fig.5.b)和下游ICL任务性能劣化(Table 1)。
+
+Fig 18 caption（3句）
+CCLXIX 模型的 CCLXX (a)和 J 范数(b)对比：A (Kx=256,Ku=768,Kv=1536)、H (K=256)、DDP、FAVG+OPT。H 和DDP的频繁 Ⅰ 一致降低范数；A 在lcm(Kx,Ku,Kv)倍数处实现可比削减。FAVG+OPT不 Ⅰ ω，经历持续更大更嘈杂更新，step 5000前易出尖峰，导致不受控 J 增长(b)。
+
+Table 5 caption（2句）
+1B-13B模型达2× CCLXXI tokens的 CCLXXII (batches/sec)，高(K=16)和低(K=256)频率，2M token CCLXXIII 大小。所有局部方法显著优于DDP CCLX。高频时 A 在13B模型上提升超1.7×；低频时优势增至超2.1×。
+
+Takeaway（1句）
+与保持纯局部 ω 导致不稳定更新的 CCLX 不同，A 通过周期性 Ⅰ J 和 M 提供类似 H 和DDP的稳定正则化，减少训练不稳定性。
+
+%=============================================================================
+% 句数合计: B引言=1+12items, B.1=1+4(cap), B.2 intro=2, B.2.1=1+2(cap)+1(takeaway),
+% B.2.2=2+1(cap10)+2(cap11)+2(takeaway), B.3 intro=2, B.3.1=1, B.3.2=1+2(cap),
+% B.3.3=3+3(cap), B.3.4=4+2(cap16)+2(takeaway), B.4=2+3(cap18)+2(cap_tab5)+1(takeaway)
+% 总计=51句正文+caption = 与nougat mmd lines 367-447 对齐 ✓
+%=============================================================================

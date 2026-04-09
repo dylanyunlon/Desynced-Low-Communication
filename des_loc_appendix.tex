@@ -103,14 +103,189 @@ We find that increasing $\beta_1$ for ADOPT, and $\beta_1, \beta_2$ for Adam, le
 \label{sec:complementary}
 %=============================================================================
 
-% NOTE: This section contains extensive figures (Figs 8-22) and experimental results.
-% Full LaTeX reconstruction deferred to Claude instances 9-10 (M201-M250).
-% Key takeaways summarized here for completeness.
+We now provide additional results supplementing those presented in the main text. Specifically:
 
-% B.1: Toy Problem on Non-IID Data → DES-LOC converges, heuristics fail
-% B.2: Independent sync frequency ablations → confirms theory
-% B.3: Communication reduction baselines → 2x over Local Adam
-% B.4: FAVG+OPT instabilities → activation norm growth
+\begin{enumerate}
+\item \textbf{Section B.1} complements Section~2.1 by including results on the heterogeneous data distribution described in Section~4.1. This highlights \texttt{DES-LOC}'s robustness under imperfect sampling or strongly Non-IID federated scenarios (see Kairouz et al., 2021, Sec 3.1).
+\item \textbf{Section B.2.1} complements Fig.~3 by showing the separate impact of varying synchronization frequencies for parameters and the second momentum when the base frequency is $K_b=16$. It supports our claim that parameters and second momentum exhibit similar behavior across different synchronization regimes, unlike the first momentum.
+\item \textbf{Section B.2.2} extends Fig.~3 by evaluating \texttt{DES-LOC-Adam}. We confirm that the parameter synchronization frequency is the most important, as predicted by our theory. In contrast, the momenta sync frequency is far less impactful, especially for low parameter sync frequencies.
+\item \textbf{Section B.3.2} complements Fig.~4 by showing \texttt{DES-LOC-ADOPT}'s perplexity against baseline methods on heterogeneous data (as defined in Section~4.1). This validates our claim from Contribution~2 regarding \texttt{DES-LOC}'s effectiveness on heterogeneous datasets.
+\item \textbf{Section B.3.3} presents an ablation study examining alternative low-communication configurations of \texttt{DES-LOC}, justifying our choice of $K_u=3K_x, K_v=6K_x$ used in Fig.~4.
+\item \textbf{Section B.3.4} repeats the baseline comparison from Fig.~4 for \texttt{DES-LOC-Adam}, demonstrating that \texttt{DES-LOC} achieves similar communication reductions and performance when using Adam instead of ADOPT.
+\item \textbf{Section B.4} provides additional metrics illustrating training instabilities for the \texttt{FAVG+OPT} baseline, including rapidly growing parameter norms, supporting observations in Fig.~5.b.
+\item \textbf{Section B.5} presents the full 1B-scale comparison of \texttt{DES-LOC} Nesterov against DiLoCo, demonstrating the benefits of periodic optimizer-state synchronization under a Nesterov outer optimizer.
+\item \textbf{Section B.6} benchmarks \texttt{DES-LOC} under extremely low bandwidth ($10$ Gbit/s), showing $9.42\times$ wall-clock speedups over DDP.
+\item \textbf{Section B.7} provides full experimental details for the Muon experiments presented in Section~5.6.
+\item \textbf{Section B.8} evaluates \texttt{DES-LOC} on the Flux vision model, demonstrating generality beyond LLMs.
+\item \textbf{Section B.9} measures training throughput at the $7$B parameter scale on B200 GPUs.
+\end{enumerate}
+
+%-----------------------------------------------------------------------------
+\subsection{Toy Problem on Non-IID Data (See Section~2.1)}
+\label{sec:b1_toy_noniid}
+%-----------------------------------------------------------------------------
+
+\textbf{Toy Example Non-IID:} Fig.~8 simulates the scenario from Section~3, where each worker $m$ optimizes a distinct loss $f_m$ on heterogeneous data. Both \texttt{DES-LOC} and Local Adam show more stable convergence and get closer to the optimum than heuristic baselines.
+
+% Figure 8: Toy problem Non-IID (PDF page 21 top)
+\begin{figure}[ht]
+\centering
+% [placeholder for toy problem Non-IID figure]
+\caption{We present a toy problem in a Non-IID setting, where \texttt{DES-LOC} (with synchronization periods $K_x=192, K_u=192, K_v=692$) and Local Adam (with $K=K_x$) converge to a superior solution compared to methods that keep optimizer states local \citep{Douillard2023,Sani2025} or periodically reset them \citep{Sani2024,Iacob2025}. Like the IID scenario, resetting optimizer states prevents convergence due to repeated oscillations caused by reinitializations. Additionally, as seen in panel~(a) between rounds $15$ and $40$, methods keeping optimizer states local suffer from larger oscillations further away from the optimum. The function optimized is $f(x_1,x_2)=(1-x_1)^2+100(x_2-x_1^2)^2$, and we simulate $M=256$ workers, each adding Gaussian noise with worker-specific standard deviation $\sigma^m \sim \mathcal{N}(0,3)$.}
+\label{fig:8}
+\end{figure}
+
+%-----------------------------------------------------------------------------
+\subsection{RQ2: Independent Sync Frequencies}
+\label{sec:b2_sync_freq}
+%-----------------------------------------------------------------------------
+
+This section provides supplementary results for \textbf{RQ2}, complementing Section~5.2. Section~B.2.1 shows that perplexity has similar sensitivity to the first and second momentum synchronization frequencies at both high and low base synchronization frequencies. Additionally, Section~B.2.2 repeats the comparison from Fig.~3 for \texttt{DES-LOC-Adam}, revealing similar trends regarding the importance of the parameters, with a reduced importance for the momenta due to lower $\beta_2$.
+
+\subsubsection{Parameter and Second Momentum At $K_b=16$ (See Fig.~3.a, Fig.~3.b)}
+\label{sec:b21_param_second}
+
+Figure~9 examines the effects of independently varying synchronization periods ($K_x, K_v$) for parameters and second momentum under \texttt{DES-LOC-ADOPT} in the high-frequency regime ($K_b=16$), chosen based on the first momentum's half-life ($\tau_{0.5}\approx 13.5$). Similar to the low-frequency results in Fig.~3.a, parameter synchronization frequency ($K_x$) strongly influences perplexity, while the second momentum ($K_v$) has minimal impact due to its long half-life. This contrasts with the first momentum, whose half-life closely matches the high-frequency period.
+
+% Figure 9: DES-LOC ADOPT perplexity at Kb=16 (PDF page 21 bottom)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 9]
+\caption{Model perplexity for \texttt{DES-LOC} (ADOPT, $\beta_1=0.95, \beta_2=0.9999$), independently varying synchronization periods at a high baseline frequency ($K_b=16$). Similar to Fig.~3, parameter synchronization~(a) is critical, with performance sharply degrading at higher periods, while second-momentum synchronization~(b) has minimal impact due to its large half-life ($\tau_{0.5}(\beta_2)\gg K_b$).}
+\label{fig:9}
+\end{figure}
+
+\textbf{Takeaway:} In high-frequency synchronization regimes, the importance of parameters and the second momentum remains similar to the low-frequency regime shown in Section~5.2.
+
+\subsubsection{Adam Results (See Fig.~3)}
+\label{sec:b22_adam}
+
+Fig.~10 show the rate of change results for Adam momenta at various $\beta$ values.
+
+Figure~11 provides complementary results to Figs.~3 and~9 using \texttt{DES-LOC-Adam} with $\beta_1=\beta_2=0.95$. Unlike ADOPT, the relatively low $\beta$ result in both the first and second momentum quickly adapting to the local gradients, reducing the impact of their sync frequency.
+
+% Figure 10: Rate of change for Adam momenta (PDF page 22)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 10]
+\caption{Relative rates of change for first and second momenta across rounds using standard Local Adam ($K=64$). Increasing $\beta_1$ substantially reduces the rate of change of the first momentum, while increasing either $\beta_1, \beta_2$ decreases the rate of change of the second.}
+\label{fig:10}
+\end{figure}
+
+% Figure 11: DES-LOC-Adam perplexity varying sync periods (PDF page 22)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 11]
+\caption{Model perplexity for \texttt{DES-LOC-Adam} ($\beta_1=\beta_2=0.95$) when independently varying sync periods ($K_x, K_u, K_v$) while fixing others at baseline $K_b$. Parameter synchronization~(a,b) influences performance in both high ($K_b=16$) and low ($K_b=256$) frequency regimes. Momenta synchronization minimally impacts perplexity due to both states' high adaptivity (low $\beta$), with potentially minor effects during the early stages of training in high-frequency regimes~(c,e).}
+\label{fig:11}
+\end{figure}
+
+\textbf{Takeaway:} For \texttt{DES-LOC-Adam}, parameter synchronization remains critical, consistent with theory. However, due to reduced $\beta_2$, momenta synchronization is less impactful since both the numerator and denominator of Adam updates are driven by local worker gradients after a few initial steps.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ3: Communication Reduction And Baseline Comparisons}
+\label{sec:b3_comm_reduction}
+%-----------------------------------------------------------------------------
+
+This section provides supplementary results for \textbf{RQ3}, complementing Section~5.3. Section~B.3.2 shows the perplexity of different configurations providing a $2\times$ communication reduction over Local Adam. Additionally, Section~B.3.4 repeats the comparison against baselines from Section~5.3 for \texttt{DES-LOC-Adam}, showing similar communication reductions relative to Local Adam.
+
+\subsubsection{Stepwise plots for Baseline Comparison}
+\label{sec:b31_stepwise}
+
+Figures~12 and~13 show stepwise plots for wall-clock results in the main text, they are the counterparts to Figs.~4 and~5.
+
+% Figure 12 and 13: Stepwise plots (PDF page 23)
+% [placeholder for Figs 12-13 -- stepwise counterparts to Figs 4,5]
+
+\subsubsection{DES-LOC on Heterogeneous Data (See Contribution~2)}
+\label{sec:b32_heterogeneous}
+
+Figure~14 evaluates the robustness of \texttt{DES-LOC} against baselines under heterogeneous (Non-IID) data distributions as described in Section~4.1. We set synchronization periods to $K_x=K$, $K_u=3K_x$, and $K_v=6K_x$ to achieve a targeted $2\times$ communication reduction over Local Adam.
+
+% Figure 14: Non-IID perplexity comparison (PDF page 24 top)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 14]
+\caption{Comparison of perplexity under Non-IID conditions for \texttt{DES-LOC}, Local Adam ($K_x=K_u=K_v$), and heuristic baselines (defined in Section~4.1) at high~(a) and low~(b) synchronization frequencies. Due to higher cross-worker variance caused by heterogeneous data, parameters require slightly more frequent synchronization in the low-frequency regime ($K_x=128<256$). Experiments are limited to $T=1536$ steps ($\sim$compute-optimal) for computational feasibility.}
+\label{fig:14}
+\end{figure}
+
+\subsubsection{DES-LOC Low Communication Configurations Ablation (See Fig.~4)}
+\label{sec:b33_ablation}
+
+Figure~15 explores alternative synchronization configurations enabling \texttt{DES-LOC} to achieve improved communication efficiency over Local Adam. Motivated by theoretical insights (Sections~2 and~3) and empirical evidence (Sections~5.1 and~5.2), we only consider settings where parameter synchronization is most frequent ($K_x \leq \min(K_u, K_v)$). This constraint follows from experiments in Section~5.2, which show that infrequent parameter synchronization significantly degrades perplexity, while momentum synchronization frequency has a smaller impact. For a fixed $2\times$ communication reduction over Local Adam, our findings confirm that synchronizing the first momentum more frequently than the second aligns with their respective half-lives and maintains performance close to Local Adam.
+
+% Figure 15: DES-LOC 2x communication configs ablation (PDF page 24 bottom)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 15]
+\caption{Configurations of \texttt{DES-LOC} targeting $2\times$ lower communication than Local Adam ($K_x=K_u=K_v$), setting $K_u, K_v$ as multiples of $K_x$. In both high~(a) and low-frequency~(b) regimes, performance depends on how communication is split between momenta for $\beta_1 \ll \beta_2$. Syncing the first momentum less often ($K_u=6K_x, K_v=3K_x$) degrades performance, wasting communication on the slow second momentum. Conversely, syncing it frequently ($K_u=3K_x, K_v=6K_x$) yields performance comparable to Local Adam. Setting $K_u=K_v=4K_x$ produces intermediate results.}
+\label{fig:15}
+\end{figure}
+
+\subsubsection{Adam Results (See Fig.~4)}
+\label{sec:b34_adam_fig4}
+
+We now present results for \texttt{DES-LOC-Adam} with $\beta_1=\beta_2=0.95$. \texttt{DES-LOC-Adam} achieves similar communication reductions over Local Adam and DDP as ADOPT. However, due to the lower $\beta_2$, the second-momentum half-life ($\tau_{0.5}(0.95)\approx 13.5$) is significantly shorter than for ADOPT ($\tau_{0.5}(0.9999)\approx 6931$). Figure~16 shows that with both momenta evolving at similar rates, the benefit of selecting $K_u < K_v$ diminishes. For consistency and due to meaningful empirical differences in rates of change (Section~5.1), we keep $K_u=3\times K_x$ and $K_v=6\times K_x$ in subsequent comparisons.
+
+Figure~17 shows \texttt{DES-LOC-Adam} achieves a $2\times$ communication reduction over the prior state-of-the-art Local Adam \citep{Cheng2025} without significant perplexity degradation. Due to the much faster evolution of the optimizer states using Adam compared to ADOPT, local worker gradients drive the optimization reducing the benefit of allocating more of the communication budget to the first momentum.
+
+% Figure 16: DES-LOC-Adam 2x communication configs (PDF page 25)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 16]
+\caption{Configurations of \texttt{DES-LOC} targeting $2\times$ lower communication than Local Adam ($K_x=K_u=K_v$), using Adam ($\beta_1=\beta_2=0.95$). In contrast to \texttt{DES-LOC-ADOPT} (where $\beta_1 \ll \beta_2$ yields an advantage for $K_u < K_v$ as shown in Fig.~15), the similar half-lives in Adam make perplexity insensitive to how communication is split between momenta for high~(a) and low-frequencies~(b).}
+\label{fig:16}
+\end{figure}
+
+% Figure 17: DES-LOC-Adam baseline comparison (PDF page 25)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 17]
+\caption{\texttt{DES-LOC-Adam} achieves a $2\times$ communication reduction over the prior state-of-the-art Local Adam without significant perplexity degradation.}
+\label{fig:17}
+\end{figure}
+
+\textbf{Takeaway:} \texttt{DES-LOC-Adam} achieves a similar $2\times$ communication reduction over Local Adam as \texttt{DES-LOC-ADOPT} by exploiting the reduced importance of optimizer-state synchronization relative to parameters. However, due to the smaller $\beta_2$ in Adam, there is limited benefit from assigning different synchronization frequencies to the first and second momenta compared to ADOPT.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ4: Additional Metrics and Training Instabilities of FAVG+OPT (See Fig.~5.b)}
+\label{sec:b4_favgopt}
+%-----------------------------------------------------------------------------
+
+Figure~18 complements Fig.~5.b by showing parameter and update norms for \texttt{DES-LOC} and baseline methods when training billion-scale models. Both \texttt{DES-LOC} and Local Adam regularize updates by synchronizing optimizer states, effectively reducing update norms due to averaging across workers (triangle inequality). In contrast, the heuristic baseline \citep{Sani2025} experiences large updates, leading to uncontrolled parameter growth, increased activations (Fig.~5.b), and degraded performance on downstream ICL tasks (Table~1) relative to its perplexity (Fig.~5.a).
+
+% Figure 18: Update and parameter norms comparison (PDF page 26)
+\begin{figure}[ht]
+\centering
+% [placeholder for Fig 18]
+\caption{Comparison of update~(a) and parameter norms~(b) for billion-scale models trained with \texttt{DES-LOC} ($K_x=256, K_u=768, K_v=1536$), Local Adam ($K=256$), DDP, and Federated Averaging with persistent optimizer states (\texttt{FAVG+OPT}). Frequent synchronization in Local Adam and DDP consistently reduces update and parameter norms. Similarly, \texttt{DES-LOC} achieves comparable reductions at intervals corresponding to multiples of $\texttt{lcm}(K_x, K_u, K_v)$, with smaller intermediate drops. Conversely, \texttt{FAVG+OPT}, which does not synchronize optimizer states, experiences persistently larger and noisier updates, becoming vulnerable to spikes (notably before step $5000$). This leads to uncontrolled parameter growth~(b).}
+\label{fig:18}
+\end{figure}
+
+% Table 5: Throughput comparison (PDF page 26, nougat inline)
+\begin{table}[ht]
+\centering
+\caption{Throughput (batches/sec) for 1B--13B models to reach $2\times$ compute-optimal tokens at high ($K=16$) and low ($K=256$) frequencies with a 2M token batch size. All local methods achieve significant throughput gains over the DDP baseline. At high frequency ($K=16$), \texttt{DES-LOC} boosts throughput by over $1.7\times$ on the $13$B model. At low frequency ($K=256$), this advantage grows to over $2.1\times$ versus DDP.}
+\label{tab:5}
+\begin{tabular}{l c c c c c c}
+\hline \hline
+ & \multicolumn{2}{c}{\textbf{1B Model}} & \multicolumn{2}{c}{\textbf{7B Model}} & \multicolumn{2}{c}{\textbf{13B Model}} \\
+\cline{2-7}
+\textbf{Method} & $K_x\!=\!16$ & $K_x\!=\!256$ & $K_x\!=\!16$ & $K_x\!=\!256$ & $K_x\!=\!16$ & $K_x\!=\!256$ \\
+\hline
+DDP (Baseline) & $171.9 \pm 0.94$ & $171.9 \pm 0.9$ & $25.1 \pm 0.10$ & $25.1 \pm 0.10$ & $11.1 \pm 0.03$ & $11.11 \pm 0.03$ \\
+\hline
+FAVG+OPT & $304.9 \pm 2.51$ & $385.4 \pm 3.7$ & $34.0 \pm 0.11$ & $40.4 \pm 0.15$ & $19.4 \pm 0.11$ & $23.5 \pm 0.15$ \\
+Local Adam & $253.1 \pm 1.59$ & $380.1 \pm 3.6$ & $30.9 \pm 0.09$ & $40.2 \pm 0.15$ & $16.7 \pm 0.07$ & $23.3 \pm 0.14$ \\
+DES-LOC ($K_u,K_v\!=\!3K_x,6K_x$) & $299.2 \pm 2.39$ & $384.1 \pm 3.7$ & $33.7 \pm 0.11$ & $40.4 \pm 0.15$ & $19.0 \pm 0.10$ & $23.5 \pm 0.15$ \\
+\hline \hline
+\end{tabular}
+\end{table}
+
+\textbf{Takeaway:} Unlike heuristic methods, which maintain purely local optimizer states leading to unstable, noisy updates, \texttt{DES-LOC} provides stable regularization similar to Local Adam and DDP by periodically synchronizing parameters and momenta, reducing training instabilities.
+
+% B.5-B.9: Deferred to Claude-9 (M201-M225)
 % B.5: DES-LOC Nesterov vs DiLoCo at 1B → DES-LOC competitive
 % B.6: Very low bandwidth (10 Gbit/s) → DES-LOC still beneficial
 % B.7: Muon experimental details → Kx=32, Ku=96

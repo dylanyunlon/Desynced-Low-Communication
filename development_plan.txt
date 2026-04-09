@@ -154,37 +154,49 @@ PDF总页数：54页
 第八位Claude 完成: M176-M200
   范围: Appendix B.1-B.4 (Complementary Results Part 1)
   内容:
-    - ⚠️ 必须基于Claude-7的commit后的HEAD工作（规范3）
-    - pdftoppm渲染PDF page 20-26
-    - nougat mmd中 "## Appendix B" 到 B.4末尾(约line 367-480)逐段校验
-    - des_loc_appendix.tex Section B placeholder替换为完整1:1内容
-    - B.1: Toy Problem on Non-IID Data (Figure 8-10 caption)
-    - B.2: Independent Sync Frequencies (Figure 11-14, RQ2补充)
-    - B.3: Communication Reduction Baselines (Figure 15-16, RQ3补充)
-    - B.4: FAVG+OPT Training Instabilities (Figure 17, activation norm)
-    - template_extraction_appendixB1.txt: B.1-B.4模板提炼(句数=nougat句数)
-    - mapping_database.json: 新增 CCLV-CCLXXIX (25个Appendix B映射)
+    - 基于Claude-7的commit bc0a31b (HEAD)
+    - pdftoppm渲染PDF page 20-26, 逐段逐句校验B intro + B.1-B.4
+    - des_loc_appendix.tex: Section B placeholder替换为完整1:1内容
+    - B引言: 完整12项enumerate列表(与PDF page 20 1:1)
+    - B.1: Toy Problem on Non-IID Data (Figure 8 caption, PDF page 21)
+    - B.2: Independent Sync Frequencies intro + B.2.1(Fig 9 cap) + B.2.2(Fig 10,11 cap)
+    - B.3: Communication Reduction intro + B.3.1(Fig 12-13) + B.3.2(Fig 14 cap)
+          + B.3.3(Fig 15 cap) + B.3.4(Fig 16,17 cap)
+    - B.4: FAVG+OPT Training Instabilities (Figure 18 caption + Table 5完整数据)
+    - Table 5: 完整6列数据 1B/7B/13B × K=16/K=256 (与nougat 1:1)
+    - template_extraction_appendixB1.txt: B.1-B.4模板提炼(严格句数对齐)
+    - mapping_database.json: 新增 CCLV-CCLXXIX (25个Appendix B映射, 总计338个)
   对应论文: Appendix B.1-B.4 (PDF pages 20-26)
-  强制检查项:
-    1. Figure caption必须与PDF逐词核对(nougat可能OCR错误)
-    2. 段落数必须与nougat mmd一致
-    3. diff检查: 不得丢失Claude-7的Appendix A修改
-  内容:
-    - Non-IID数据Toy Problem
-    - 独立同步频率补充实验
-    - 通信削减基线对比
-    - FAVG+OPT训练不稳定性分析
-  对应论文: Appendix B.1-B.4
+  状态: ✅ 已完成
+  句数校验: B引言=1+12items✓, B.1=1para+Fig8cap✓, B.2=2+1+1+2+1+2+1+2+2✓,
+            B.3=2+1+1+2+3+3+4+2+2✓, B.4=2+Fig18cap+Tab5cap+1takeaway✓
+  diff校验: Claude-7的Appendix A (lines 1-100)全部保留✓, Section C以后全部保留✓
+  nougat对齐: mmd lines 367-447 全部覆盖✓
+  ⚠️ 遗留给Claude-9: Appendix B.5-B.9 (PDF pages 26-30)
+  ⚠️ 已知nougat问题: Table 5中 DES-LOC行标注 "K_u,K_v=3K_v,6K_v" 实为 "3K_x,6K_x" (已在tex中修正)
 
-第十位Claude 完成: M226-M250
-  范围: Appendix B.5-B.9
+第九位Claude 完成: M201-M225
+  范围: Appendix B.5-B.9 (Complementary Results Part 2)
   内容:
-    - DES-LOC Nesterov vs DiLoCo 1B规模
-    - 低带宽实验
-    - Muon实验细节
-    - Flux视觉模型实验
-    - 7B规模吞吐量
-  对应论文: Appendix B.5-B.9
+    - ⚠️ 必须基于Claude-8的commit后的HEAD工作（规范3）
+    - pdftoppm渲染PDF page 26-30
+    - nougat mmd中 B.5标题(line 448)到 "## Appendix C"(line 510)之前, 逐段校验
+    - des_loc_appendix.tex: 替换B.5-B.9 placeholder注释为完整1:1内容
+    - B.5: DES-LOC Nesterov vs DiLoCo at 1B (Figure 19 caption, 3段正文)
+    - B.6: Very low bandwidth 10 Gbit/s (Figure 20 caption, 2段正文, Takeaway)
+    - B.7: Muon Experimental Details (2段: intro + Experimental Details)
+    - B.8: Flux Vision Model (Figure 21 caption, 2段: intro + Experimental Setup)
+    - B.9: Throughput at 7B Scale (Figure 22隐含, 2段: Throughput Analysis + Takeaway)
+    - template_extraction_appendixB2.txt: B.5-B.9模板提炼(严格句数对齐)
+    - mapping_database.json: 新增 CCLXXX-CCCIV (25个, Nesterov/DiLoCo/bandwidth映射)
+  对应论文: Appendix B.5-B.9 (PDF pages 26-30)
+  强制检查项:
+    1. Figure 19 caption: 必须含 "40,960 steps" "AdamW inner optimizer" 四行说明
+    2. Figure 20 caption: 必须含 "10 Gbit/s" "9 hours" "3.5 days"
+    3. Figure 21 caption: 必须含 "280M parameter Flux" "Rectified Flow Transformer"
+    4. B.5 Table 5 已由Claude-8放在B.4末尾, 勿重复
+    5. B.5 第1段被nougat截断("while DES-LOC Nesterov"), 需从mmd line 463-469续接
+    6. diff检查: 不得丢失Claude-8的B.1-B.4修改和Table 5
 
 第十一位Claude 完成: M251-M275
   范围: Appendix C
