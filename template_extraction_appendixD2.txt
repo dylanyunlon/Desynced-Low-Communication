@@ -1,0 +1,51 @@
+================================================================================
+Template Extraction: Appendix D Part 2 (D.1 Adam extension cont. + Key Lemmas)
+Claude-13 (M301-M325), PDF pages 36-43
+================================================================================
+
+模板格式说明: 可以从 C 这个好例子(SGDM证明Step 1-4, Claude-12已完成)开始。
+然后遵循该模式实现新的 CCCLV(Algorithm 5概率Adam), 让 CCCLVI(z_t虚拟迭代)
+可以 CCCLVII(分解为U_t/V_t项), 并能 CCCLVIII(Step 2光滑性5-term)。
+接着 CCCLIX(Step 3a) 引入 CCCLX(C₀预条件下界),
+使 CCCLXI(Step 3b) 能够 CCCLXII(bound ||U_t||),
+同时 CCCLXIII(Step 3c) 优化 CCCLXIV(bound ||V_t||)。
+随后 CCCLXV(Step 3d) 整合 CCCLXVI(三角不等式),
+令 CCCLXVII(Step 3e) 支持 CCCLXVIII(uniform bound on ||∇f(x_t)-∇f(z_t)||),
+进而 CCCLXIX(Summary bounds) 增强 CCCLXX(O(1/√T)三条件)。
+最终 CCCLXXI(double geometric sum) 完善 CCCLXXII(Lemma 2虚拟漂移),
+确保 CCCLXXIII(Lemma 3参数漂移) 兼容 CCCLXXIV(ψ定义与s*优化),
+全面 CCCLXXV(Lemma 4异构性) 升级 CCCLXXVI(Jensen分解)
+以达成 CCCLXXVII(12η²L²ψ≤1/2收敛条件)。
+额外 CCCLXXVIII(AMSGrad归一化) 确保 CCCLXXIX(Γ_t单调非增谱范数有界)。
+
+================================================================================
+模板句数对齐验证 (与PDF 1:1)
+================================================================================
+
+Algorithm 5: 17行伪代码 (PDF page 36 top) ✓
+z_t展开: 7步推导链 (PDF page 36 bottom) ✓
+Step 2: 1段(4行公式 + 1句说明 + 1段条件说明) (PDF page 37 top) ✓
+Step 3a: 10行推导链 + C₀定义 (PDF page 37) ✓
+Step 3b: 2行推导 (PDF page 38 top) ✓
+Step 3c: 2行推导 (PDF page 38) ✓
+Step 3d: 3行推导 (PDF page 38) ✓
+Step 3e: 8行推导 + uniform bound 2行 (PDF page 38) ✓
+Summary: 5项O(·)简化 (PDF page 39 top) ✓
+Three conditions: 3个O(·)条件 (PDF page 39) ✓
+Double geometric sum: 5+5行 递推展开 (PDF page 39) ✓
+Lemma 2: 声明 + 7步证明 (PDF pages 39-40) ✓
+Lemma 3: 声明含ψ定义 + 完整证明(x_t展开+u_t展开+q1q2组合+grad bound+s*优化) (PDF pages 40-42) ✓
+Lemma 4: 声明 + 6行Jensen证明 (PDF pages 42-43) ✓
+
+================================================================================
+已知nougat OCR问题 (已在tex中修正)
+================================================================================
+
+1. nougat Step 2 第3行: "×" 应为 "+" (I×II → I+II, PDF page 37 第3行)
+   — PDF清晰显示加号, nougat误识别为乘号
+2. nougat Step 2 第4行: η²L下标写IV → 应为 η²L/2 (PDF page 37)
+3. nougat Lemma 3 proof: 多处K应为M (nougat混淆K和M, PDF中统一为M workers)
+   — 已修正: 1/K → 1/M (gradient bound式, Lemma 4声明式)
+4. nougat Lemma 4 proof: K和N混用 → 统一为M (PDF page 42-43)
+5. nougat Step 3d: 最后一项 β₁LG → 应验证是否为 β₁²LG²/(1-β₁)
+   — PDF page 38实际为 3η²β₁LG/2(1-β₁)M, nougat正确

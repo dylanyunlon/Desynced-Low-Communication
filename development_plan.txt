@@ -267,47 +267,64 @@ PDF总页数：54页
 第十三位Claude 完成: M301-M325
   范围: Appendix D Part 2 — D.1 Adam扩展证明(续) + Key Lemmas 2,3,4
   内容:
-    - ⚠️ 必须基于Claude-12的commit后的HEAD工作
+    - 基于Claude-12的commit d58daf7 (HEAD)
     - pdftoppm渲染PDF page 36-43, 逐段逐符号校验
-    - 当前tex D.1位置: sec:adam_extension 末尾的 "% NOTE for Claude-13" 注释处
-    - 需要补全的内容（严格按PDF 1:1）:
-      1. Algorithm 5 DES-LOC-Adam (17行, 概率同步p_x/p_u/p_v, PDF page 36 top)
-         - 注意: 与Appendix C的Algorithm 2(确定性版)不同, Algorithm 5是概率版
-         - 行14: v_t^m sync with p_v (v有独立同步周期)
-         - 行15: ṽ_t^m ← max(v_t^m, ṽ_{t-1}^m) (AMSGrad normalization)
-         - 行16: d_t^m ← η_t/√(ṽ_t^m + λ²) ⊙ u_t^m (bias-corrected)
-      2. z_t虚拟迭代展开 (PDF page 36 bottom): z_{t+1}-z_t = -ηΓ_tg_t + ηU_t + ηV_t
-         - U_t = E_m[Γ_t^m(g_t - g̃_t^m)]
-         - V_t = β₁/(1-β₁)·E_m[(Γ_{t-1}^m - Γ_t^m)u_{t-1}^m]
-      3. Step 2 smoothness (PDF page 37 top): 5个term分解 I/II/III/IV/V
-      4. Step 3a (PDF page 37): term I bound → ||Γ_{t-1}||_min ≥ 1/C₀
-      5. Step 3b (PDF page 38 top): term II bound (||U_t||)
-      6. Step 3c (PDF page 38): term III bound (||V_t||)
-      7. Step 3d (PDF page 38): term IV bound (||Γ_tg_t - U_t - V_t||²)
-      8. Step 3e (PDF page 38-39): term V bound (most complex, 用uniform bound on ||∇f(x_t)-∇f(z_t)||)
-      9. 汇总bounds (PDF page 39): I-V各项的O(·)简化形式
-      10. 剩余条件: O(1/√T) bound需要的三个bound (extension of Lemma 3, AMSGrad, geometric sum)
-      11. E[||g_t - g̃_t^m||] 的递推展开 (double geometric sum, 与Eq.(7)结构相同)
-    - Key Lemmas (PDF pages 39-43, nougat mmd lines ~165-303):
-      12. Lemma 2: ||z_t - x_t||² bound (PDF page 39-40)
-      13. Lemma 3: ||x_t - x_t^m||² bound + ψ定义 (PDF page 40-42)
-      14. Lemma 4: heterogeneity bound (PDF page 42-43)
-    - template_extraction_appendixD2.txt: 模板提炼
-    - mapping_database.json: 新增 CCCLV-CCCLXXIX (25个)
-  对应论文: Appendix D 后半 (PDF pages 36-43)
-  强制检查项:
-    1. Algorithm 5 ≠ Algorithm 2: Alg 5是概率版(p_x/p_u/p_v), Alg 2是确定性版(K mod)
-    2. Step 3a中C₀ = √(G²+λ²): 逐符号与PDF page 37 bottom核对
-    3. Lemma 3证明中s*优化: s* = 1/√(1-p_x) - 1, 最终得ψ定义
-    4. Lemma 4中K vs M: nougat混淆K和M, PDF中全部为M (workers数)
-    5. diff检查: 不得丢失Claude-12的SGDM证明 + D.1开头
+    - des_loc_appendix.tex: 在D.1 sec:adam_extension处插入~380行LaTeX
+    - Algorithm 5 DES-LOC-Adam (概率同步版, 17行伪代码, p_x/p_u/p_v)
+      - 与Appendix C的Algorithm 2(确定性版)不同: Alg 5用概率p_x/p_u/p_v
+      - line 14: v_t^m sync with p_v (v有独立同步周期)
+      - line 15: ṽ_t^m ← max(v_t^m, ṽ_{t-1}^m) (AMSGrad normalization)
+      - line 16: d_t^m ← η/√(ṽ+λ²) ⊙ u_t^m (bias-corrected)
+    - z_t虚拟迭代展开 (7步推导链): z_{t+1}-z_t = -ηΓ_tg_t + ηU_t + ηV_t
+      - U_t = E_m[Γ_t^m(g_t - g̃_t^m)] (梯度不一致项)
+      - V_t = β₁/(1-β₁)·E_m[(Γ_{t-1}^m - Γ_t^m)u_{t-1}^m] (预条件变化项)
+    - Step 2 smoothness: 5个term分解 I/II/III/IV/V
+    - Step 3a: term I bound → C₀ = √(G²+λ²) 预条件下界
+    - Step 3b: term II → ||U_t|| ≤ ηG/(λM)·Σ||g_t-g̃_t^m||
+    - Step 3c: term III → ||V_t|| bound via Γ差异
+    - Step 3d: term IV → 三角不等式 3-term bound
+    - Step 3e: term V → uniform bound ||∇f(x_t)-∇f(z_t)|| ≤ ηβ₁LG/((1-β₁)λ)
+    - Summary bounds: I-V各项O(·)简化 + O(1/√T)三条件
+    - double geometric sum: ||g_t-g̃_t^m|| 递推展开 (与Eq.(7)同构)
+    - Lemma 2 (lem:virt_drift): ||z_t-x_t||² bound, 完整证明
+    - Lemma 3 (lem:bound): ||x_t-x_t^m||² bound + ψ定义 + s*优化, 完整证明
+    - Lemma 4 (lem:het): 异构性bound, Jensen分解3-term证明
+    - template_extraction_appendixD2.txt: 模板提炼(严格句数对齐)
+    - mapping_database.json: 新增 CCCLV-CCCLXXIX (25个, 总计438个)
+  对应论文: Appendix D 后半 + D.2 Key Lemmas (PDF pages 36-43)
+  状态: ✅ 已完成
+  nougat OCR修正:
+    1. Step 2 nougat第3行: ×→+ (I×II应为I+II, PDF page 37明确为加号)
+    2. Lemma 3 proof/Lemma 4声明: K→M (nougat混淆K和M, PDF统一为M workers)
+    3. Lemma 4 proof: K/N混用 → 统一为M
+  diff校验: Claude-12的SGDM证明(lines 490-680) + D.1开头(lines 682-708)全部保留✓
+  ⚠️ 遗留给Claude-14: Appendix E (高概率bounds, PDF pages 44-46)
 
 第十四位Claude 完成: M326-M350
-  范围: Appendix E
+  范围: Appendix E (DES-LOC-Adam高概率界证明)
   内容:
-    - DES-LOC-Adam高概率界证明
-    - β2 < 1.0时同步频率必须有限的证明
-  对应论文: Appendix E
+    - ⚠️ 必须基于Claude-13的commit后的HEAD工作
+    - pdftoppm渲染PDF page 44-46 (实际Appendix E在pages 44-54中的前部分)
+    - nougat参考: pages_32_46.mmd lines 220-303 + 12473_DES_LOC_Desynced_Low_Com.mmd lines 858+
+    - 当前tex位置: sec:high_prob 下面只有 "% Placeholder" 注释
+    - 需要补全的内容（严格按PDF 1:1）:
+      1. DES-LOC-OPT(K_x,K_1,...,K_N) vs DES-LOC-OPT(K,...,K) 等价性论证
+         - 两种算法在T=rK时完全同步的性质
+         - OPT(K_x,...,K_N)的漂移不大于OPT(K,...,K)的证明
+         - 递归drift bound: ||s_k^n - s_0|| ≤ kU
+      2. Cheng & Glasgow (2025) 结果的直接应用声明
+      3. 优化目标 min f(x) = E[F(x;ξ)] 定义 (Eq.8)
+      4. 辅助序列 z_{t+1}^m 定义 (Eq.9, 分两种情况)
+      5. Assumptions 5-8 (Lower-boundedness, Smoothness, Bounded α-moment noise, Weak convexity)
+      6. Theorem 5 (高概率收敛率声明 + 证明引用)
+      7. 主项分析: O(√(LΔσ²/(MK_lcm R)))
+    - template_extraction_appendixE.txt: 模板提炼
+    - mapping_database.json: 新增 CCCLXXX-CCCIV (25个)
+  强制检查项:
+    1. K_lcm = lcm{K_x, K_u, K_v}: 确认nougat中的lcm定义正确
+    2. Theorem 5中的(2/3)指数: 验证nougat OCR是否正确
+    3. Eq.(8)(9)编号: 确保与正文引用一致
+    4. diff检查: 不得丢失Claude-13的D.1 Adam证明 + Key Lemmas
 
 第十五位Claude 完成: M351-M375
   范围: Appendix F + G

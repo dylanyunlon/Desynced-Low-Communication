@@ -416,7 +416,32 @@
     "CCCLI": "bounded heterogeneity (Assumption 3)",
     "CCCLII": "bounded gradient (Assumption 4, ||g_t^m||₂ ≤ G)",
     "CCCLIII": "preconditioning matrix (Γ_t^m = diag⁻¹ᐟ²(ṽ+λ²))",
-    "CCCLIV": "Adam extension (D.1, second-order momentum)"
+    "CCCLIV": "Adam extension (D.1, second-order momentum)",
+    "CCCLV": "Algorithm 5 DES-LOC-Adam（概率同步版, p_x/p_u/p_v）",
+    "CCCLVI": "虚拟迭代z_t（Adam版, 含预条件矩阵Γ_t）",
+    "CCCLVII": "U_t/V_t项分解（梯度不一致项/预条件变化项）",
+    "CCCLVIII": "Step 2光滑性（Adam 5-term分解 I/II/III/IV/V）",
+    "CCCLIX": "Step 3a（term I, 预条件梯度内积bound）",
+    "CCCLX": "C₀ = √(G²+λ²)（预条件矩阵最小特征值下界）",
+    "CCCLXI": "Step 3b（term II, ||U_t|| bound via Cauchy-Schwarz）",
+    "CCCLXII": "g̃_t^m（伪梯度, (u_t^m-β₁u_{t-1}^m)/(1-β₁)）",
+    "CCCLXIII": "Step 3c（term III, ||V_t|| bound via Γ差异）",
+    "CCCLXIV": "预条件矩阵差异 ||Γ_{t-1}^m - Γ_t^m||",
+    "CCCLXV": "Step 3d（term IV, 三角不等式 3-term bound）",
+    "CCCLXVI": "三角不等式（||a-b-c||² ≤ 3||a||²+3||b||²+3||c||²）",
+    "CCCLXVII": "Step 3e（term V, 最复杂项, ∇f(x_t)-∇f(z_t)与Γ_t g_t）",
+    "CCCLXVIII": "uniform bound（||∇f(x_t)-∇f(z_t)|| ≤ ηβ₁LG/((1-β₁)λ)）",
+    "CCCLXIX": "Summary bounds（I-V各项O(·)简化形式）",
+    "CCCLXX": "O(1/√T)三条件（Lemma 3扩展 + AMSGrad + double geometric sum）",
+    "CCCLXXI": "double geometric sum结构（与Eq.(7)同构）",
+    "CCCLXXII": "Lemma 2（虚拟迭代漂移 ||z_t-x_t||², Eq.(6)）",
+    "CCCLXXIII": "Lemma 3（参数漂移 ||x_t-x_t^m||², 含ψ定义）",
+    "CCCLXXIV": "s*优化（s*=1/√(1-p_x)-1, 最小化φ/(1-q₁)(1-q₂)）",
+    "CCCLXXV": "Lemma 4（异构性bound, Jensen分解3-term）",
+    "CCCLXXVI": "Jensen分解（∇f_m(x_t^m)-∇f_m(x_t) / ∇f_m(x_t)-∇f(x_t) / 残差）",
+    "CCCLXXVII": "12η²L²ψ≤1/2（Lemma 3自引用收敛条件）",
+    "CCCLXXVIII": "AMSGrad归一化（ṽ_t^m=max(v_t^m, ṽ_{t-1}^m), 保证Γ_t谱范数单调）",
+    "CCCLXXIX": "谱范数bound（||Γ_{t-1}||_min ≥ 1/C₀, ||Γ_{t-1}||_max ≤ 1/λ）"
   },
   "claude_instances": [
     "第一位Claude (M001-M025)",
@@ -430,6 +455,12 @@
       "range": "M151-M175",
       "added": "CCXXX-CCLIV (25个Appendix A映射)",
       "total_after": 313
+    },
+    {
+      "instance": "Claude-13",
+      "range": "M301-M325",
+      "added": "CCCLV-CCCLXXIX (25个Appendix D.1 Adam证明续+Key Lemmas映射)",
+      "total_after": 438
     }
   ],
   "notes": "本映射将DES-LOC论文的分布式优化概念映射到template.txt的中文技术项目描述模板中。模板原为移动端/Android项目风格，此处将其领域转换为分布式深度学习优化器项目。Claude-2新增CI-CXXV共25个收敛理论专用映射。Claude-3新增CXXVI-CL共25个实验设计专用映射。"
