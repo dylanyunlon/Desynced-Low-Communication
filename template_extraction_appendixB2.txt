@@ -1,0 +1,81 @@
+%=============================================================================
+% Claude-10 (M226-M250): Appendix B.5-B.9 模板提炼
+% 来源: PDF pages 26-30 / nougat mmd lines 448-509
+% 规范: 句数严格对齐nougat+PDF, 每段句数标注
+%=============================================================================
+
+B.5 CCLXXX vs CCLXXXI at 1B Scale（标题=8中文字）
+
+B.5 para1（3句）
+已证明 CCLXXX 改进 A（Section 5.5），我们问 CCLXXXII 是否仍优于 CCLXXXI（$K_u=K_v=\infty$）。Charles et al.(2025)示在大规模（>1B）CCLXXXI 可匹配DDP。我们采用其超参训练1B模型用$4\times8$ H100s共$40{,}960$步（$\approx4\times$ CCLXXXIV），对比Adam-DDP/Local Adam/DiLoCo/A CCLXXX，Kx=32，$K_u=4K_x,K_v=8K_x$。
+
+Fig 19 caption（4句）
+对比Adam-DDP、Local Adam、DiLoCo和A CCLXXX 在1B模型$40{,}960$步AdamW内优化器。左上：训练 CCLXXXIII vs步数。右上：worker CCLXXXV。左下：训练 CCLXXXIII vs时间，右下：全模型输出 CCLXXXVI。阴影区域显示跨worker标准差，误差棒示worker间方差含漂移累积。
+
+B.5 para2（4句）
+Fig.19左上示 CCLXXX 方法优于AdamW：DiLoCo达$7.63\pm0.20$ CCLXXXIII，比Adam-DDP改善$\approx2\%$，A CCLXXX 达$7.56\pm0.20$，比DiLoCo增$\approx0.9\%$；均优于Local Adam($8.13\pm0.23$)。注意此对比是 CCLXXX 局部更新vs DDP标准Adam；如Charles et al.所注，DDP也用 CCLXXX 时差距可缩小或反转。这些结果示 CCLXXXII 保留 CCLXXX 优势同时保持状态平均的优点。
+
+B.5 para3（2句）
+我们通过测量 CCLXXXV 和 CCLXXXVI 统计分析优化器状态与外优化器的交互。Fig.19上下右示DiLoCo和A CCLXXX 的 CCLXXXV 相对Adam-DDP和Local Adam快速下降并保持约$2\times$小于DDP，示 CCLXXX 可引导优化至更平滑损失景观区域。状态同步略加速 CCLXXXV 下降超过DiLoCo，之后曲线重合。
+
+B.5 para4（4句）
+DiLoCo下总输出 CCLXXXVI 单调增至$>2\times$Adam-DDP值，而A CCLXXX 大幅减缓此增长，终值$\approx32\%$低于DiLoCo。这类似A vs FedAvg基线无 CCLXXXII 时的稳定化(Fig.5)。这支持将有限同步视为限制worker漂移和 CCLXXXVII 的正则化器。A CCLXXX 相对DiLoCo在固定$K_x$下额外通信成本$\approx2\%$慢于DiLoCo，$\approx8\%$快于Local Adam；增大$K_u,K_v$可任意减小此代价，极限$K_u,K_v\to\infty$恢复DiLoCo。
+
+B.5 Takeaway（2句）
+在1B规模和长训练中，CCLXXX 方法（DiLoCo、A CCLXXX）优于Adam-DDP。相对DiLoCo，A CCLXXX 匹配或改善 CCLXXXIII 同时大幅降低 CCLXXXV 和 CCLXXXVI，在 CCLXXXVIII 上产生可调点。
+
+B.6 Very Low Bandwidth Experiments（标题=6中文字）
+
+B.6 para1（2句）
+虽然 CCLXXXIII 不受网络带宽影响，但 CCLXXXIX 对其高度敏感。我们用1B模型在极低带宽(CCXCI)下基准测试 CCLXXXIX，模拟 CCXC 场景。因DDP极端梯度同步延迟，基准限于$10{,}240$步。
+
+Fig 20 caption（2句）
+1B模型在受限带宽(10 Gbit/s)下的训练效率基准。左：CCLXXXIII vs时间，A CCLXXX 将训练时间与带宽解耦，$\approx9$小时完成vs DDP$\approx3.5$天。右：CCLXXXIII vs步数，步级收敛可比但DDP通信开销在时间域造成巨大瓶颈。
+
+B.6 para2（4句）
+Fig.20示A CCLXXX 大幅减少训练时间$\approx$ CCXCII vs DDP，$8.99$小时vs$84.73$小时($3.5$天)。A CCLXXX 比Local Adam效率更高，快$\approx7\%$(8.99h vs 9.62h)同时 CCLXXXIII 显著更低(8.91 vs 10.19)。与DiLoCo(8.68h)相比，A CCLXXX 因额外 CCLXXXII 付出$\approx3.6\%$时间代价，但 CCLXXXIII 改善$\approx2.3\%$(8.91 vs 9.12)。
+
+B.6 Takeaway（2句）
+在极低带宽(CCXCI)下，A CCLXXX 消除通信瓶颈，减少训练时间 CCXCII。在Pareto前沿取平衡：时间在Local Adam和DiLoCo之间，同时 CCLXXXIII 优于两者。
+
+B.7 Muon Experimental Details（标题=6中文字）
+
+B.7 para1（1句）
+本节提供Section 5.6中 CCXCIV 实验的完整细节。虽全面理论处理 CCXCIV 局部更新超出本文范围，A设计与此类结构固有兼容，因动量缓冲遵循标准 CCXCV 动力学。
+
+B.7 para2 Experimental Details（6句）
+使用标准PyTorch实现的Muon，启用 CCLXXX 动量，权重衰减0.1。按Liu et al.(2025)建议应用 CCXCVII 调整学习率。采用 CCXCVI：AdamW处理嵌入和层归一化，Muon优化所有2D矩阵(Jordan et al.,2024)。Muon $\beta=0.9$，Adam $\beta_1=0.9,\beta_2=0.999$。梯度裁剪按模型大小缩放：$1.0$(16M)/$0.5$(125M)/$0.25$(360M)。Local Muon基线每32步同步所有状态；A延迟：一阶动量每96步($3\times$)，Adam二阶每192步($6\times$)。
+
+B.8 Experiments on the Flux Vision Model（标题=7中文字）
+
+B.8 para1（2句）
+为展示A在不同模态和架构的通用性，超越标准decoder-only LLM，我们在 CCXCVIII 上评估其性能——一种用于 CCXCIX 的 CCXCVIII。此架构与之前章节的因果语言模型显著不同，作为解耦同步方法泛化性的稳健测试。
+
+B.8 para2 Experimental Setup（3句）
+使用 CCC 提供的$280$M参数 CCXCVIII 变体，全局批量256。内优化器AdamW $\beta_1=0.9,\beta_2=0.999$。对比三设置：(1)DDP，(2)Local Adam $K=32$，(3)A $K_x=32$，$K_u=3K_x$，$K_v=6K_x$(192步)。
+
+Fig 21 caption（1句）
+$280$M参数 CCXCVIII（CCXCVIII）上训练损失对比，A($K_x=32,K_u=192,K_v=192$)有效匹配DDP和Local Adam($K=32$)收敛轨迹。
+
+B.8 para3（1句）
+Fig.21示A总体匹配Local Adam性能并接近DDP上界。
+
+B.8 Takeaway（2句）
+A的效力超越LLM扩展至 CCXCVIII（CCCI）。方法总体匹配DDP和Local Adam性能同时减少$2\times$通信，展示方法 CCCI。
+
+B.9 Throughput at 7B Scale（标题=5中文字）
+
+B.9 para1（1句）
+为评估在最先进硬件和大模型规模下的实际可扩展性，我们测量7B模型在8个独立NVIDIA CCCII 上的训练吞吐量。
+
+B.9 para2 Throughput Analysis（2句）
+Fig.22示在局部更新阶段每GPU以全隔离本地运行的峰值效率运行，零同步开销。吞吐量下降仅在稀疏同步边界($K_x=32,K_u=96,K_v=192$)出现。
+
+Fig 22 caption（2句）
+7B模型在8x CCCII 上的瞬时吞吐量(tokens/sec)。A在绝大多数步维持峰值"仅本地"速度，吞吐量下降仅在同步间隔(32,96,192)出现；标准DDP在每步产生同步惩罚。
+
+B.9 para3（2句）
+关键是标准DDP在每个训练步产生通信惩罚，显著降低平均tokens/sec。即使用当前未优化的 CCXCIII（暂停计算通信，无 CCCIV），A通过在长本地训练窗口分摊成本显著增加总吞吐。
+
+B.9 Takeaway（2句）
+在高性能 CCCII 硬件上，A实现 CCCIII 通过保持worker在高吞吐本地体制。限制通信开销到稀疏间隔，即使无 CCCIV 等低级优化也显著提速超DDP。

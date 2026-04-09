@@ -285,12 +285,102 @@ DES-LOC ($K_u,K_v\!=\!3K_x,6K_x$) & $299.2 \pm 2.39$ & $384.1 \pm 3.7$ & $33.7 \
 
 \textbf{Takeaway:} Unlike heuristic methods, which maintain purely local optimizer states leading to unstable, noisy updates, \texttt{DES-LOC} provides stable regularization similar to Local Adam and DDP by periodically synchronizing parameters and momenta, reducing training instabilities.
 
-% B.5-B.9: Deferred to Claude-9 (M201-M225)
-% B.5: DES-LOC Nesterov vs DiLoCo at 1B → DES-LOC competitive
-% B.6: Very low bandwidth (10 Gbit/s) → DES-LOC still beneficial
-% B.7: Muon experimental details → Kx=32, Ku=96
-% B.8: Flux vision model → DES-LOC generalizes beyond LLMs
-% B.9: 7B throughput on B200 → near-linear scaling
+%=============================================================================
+\subsection{DES-LOC Nesterov vs.\ DiLoCo at 1B Scale}
+\label{sec:b5_nesterov_diloco}
+%=============================================================================
+
+Having shown that a Nesterov outer optimizer improves \texttt{DES-LOC} (Section~5.5), we ask whether synchronizing optimizer states still helps relative to the local-state ($K_u=K_v=\infty$) Nesterov method DiLoCo. \citet{charles2025convergence} has shown that at \textbf{large} scale ($>1B$ parameters) DiLoCo can match or outperform DDP with Adam. We adopt their outer hyper-params and train a 1B model with the same experimental design as Section~5.5 using $4\times 8$ H100s for $40{,}960$ steps ($\approx 4\times$ compute-optimal) with inner Adam, comparing Adam-DDP, Local Adam, DiLoCo, and \texttt{DES-LOC} Nesterov, with $K_x=32$ for Local Adam and DiLoCo and $K_u=4K_x, K_v=8K_x$ for \texttt{DES-LOC} Nesterov.
+
+\begin{figure}[t]
+\centering
+% Figure 19: 4-panel comparison (PDF page 27 top)
+\caption{Comparison of Adam-DDP, Local Adam, DiLoCo, and \texttt{DES-LOC} Nesterov on a 1B-parameter model trained for $40{,}960$ steps with an AdamW inner optimizer. Top left: train perplexity vs steps. Top right: worker gradient norms. Bottom left: train perplexity vs time, bottom right: whole-model output activation norms. Shaded regions show std across workers. \texttt{DES-LOC} Nesterov outperforms Adam, it also outperforms DiLoCo at the cost of more communication. Error bars show variance across workers, accounting for compounding local drift.}
+\label{fig:nesterov_diloco_1b}
+\end{figure}
+
+Figure~\ref{fig:nesterov_diloco_1b} (top left) shows that Nesterov-based methods outperform AdamW: DiLoCo achieves $7.63\pm 0.20$ validation perplexity, improving over Adam-DDP by $\approx 2\%$, while \texttt{DES-LOC} Nesterov reaches $7.56\pm 0.20$, a $\approx 0.9\%$ gain over DiLoCo; both outperform Local Adam ($8.13\pm 0.23$). Note that this comparison pits Nesterov-based local updates against DDP with standard Adam; as \citet{charles2025convergence} note, once DDP also uses Nesterov, this gap can shrink or reverse depending on model size and worker count. These results show that synchronizing optimizer states preserves the benefits of Nesterov while retaining the advantages of state averaging.
+
+We analyze the interaction between the optimizer states and the outer optimizer by measuring the gradient norms and activation statistics. In Figure~\ref{fig:nesterov_diloco_1b} (top and bottom right), for both DiLoCo and \texttt{DES-LOC} Nesterov, gradient norms drop rapidly relative to Adam-DDP and Local Adam and remain roughly $2\times$ smaller than DDP thereafter, suggesting that Nesterov may steer optimization toward smoother regions of the loss landscape. State synchronization slightly accelerates the decrease in gradient norm over DiLoCo, after which the curves coincide.
+
+Under DiLoCo, total output activation norms grow monotonically to more than $2\times$ the Adam-DDP values, whereas \texttt{DES-LOC} Nesterov substantially slows this growth, ending $\approx 32\%$ below DiLoCo (bottom row). This resembles the stabilization seen for \texttt{DES-LOC} versus FedAvg baselines without optimizer-state averaging (Fig.~5), where periodic averaging also curbed activation growth. This supports viewing finite synchronization as a regularizer that limits worker drift and optimizer-state noise, yielding better-controlled activations while offering Nesterov's benefits. \texttt{DES-LOC} Nesterov does incur additional communication costs relative to DiLoCo at fixed $K_x$, being $\approx 2\%$ slower than DiLoCo under these bandwidth conditions (Fig.~\ref{fig:nesterov_diloco_1b} bottom left) and $K_u, K_v$ settings while being $\approx 8\%$ faster than Local Adam. The extra cost can be made arbitrarily small by increasing the optimizer-state sync periods ($K_u, K_v$): in the limit $K_u, K_v \rightarrow \infty$ it recovers DiLoCo in both performance and communication, while any finite sync period partly inherits the robustness and fault-tolerance benefits of synchronizing optimizer states, modulated by the chosen $\beta$'s.
+
+\begin{center}\fbox{\parbox{0.95\textwidth}{
+\textbf{Takeaway:} At the 1B scale and long horizons, Nesterov-based local-update methods (DiLoCo, \texttt{DES-LOC} Nesterov) outperform Adam-DDP, consistent with prior scaling-law results. Relative to DiLoCo, \texttt{DES-LOC} Nesterov matches or improves perplexity while substantially reducing gradient and activation norms via periodic optimizer-state synchronization, yielding a tunable point on the communication--performance Pareto frontier.
+}}\end{center}
+
+%=============================================================================
+\subsection{Very Low Bandwidth Experiments}
+\label{sec:b6_low_bandwidth}
+%=============================================================================
+
+While perplexity is invariant to network bandwidth, wall-clock time is highly sensitive to it. To practically showcase this, we perform a benchmark with a 1B model to measure time under extremely low bandwidth conditions (10 Gbit/s). This setup simulates a scenario with affordable, consumer-grade interconnects rather than data-centers. Due to the extreme gradient synchronization delay inherent to DDP in this regime, the benchmark was limited to a $10{,}240$ step horizon to remain feasible.
+
+\begin{figure}[t]
+\centering
+% Figure 20: 2-panel bandwidth benchmark (PDF page 28 top)
+\caption{Training efficiency benchmark on a 1B model under restricted bandwidth (10 Gbit/s). \textbf{Left:} Perplexity versus wall-clock time. \texttt{DES-LOC} Nesterov effectively decouples training time from bandwidth, finishing in $\approx 9$ hours compared to the projected $\approx 3.5$ days for DDP (dashed blue). \textbf{Right:} Perplexity versus sequential steps. While step-wise convergence is comparable, the communication overhead of DDP creates a massive bottleneck in the time domain.}
+\label{fig:low_bandwidth}
+\end{figure}
+
+As shown in Figure~\ref{fig:low_bandwidth}, \texttt{DES-LOC} Nesterov dramatically reduces training time by $\approx 9.42\times$ compared to DDP, completing the run in $8.99$ hours versus $84.73$ hours ($3.5$ days) for DDP, even with the constant overheads of our unoptimized implementation. Furthermore, \texttt{DES-LOC} Nesterov is more efficient than Local Adam, finishing $\approx 7\%$ faster (8.99h vs.\ 9.62h) while achieving significantly lower perplexity (8.91 vs.\ $10.19$). When compared to the ultra-lightweight DiLoCo baseline (8.68h), \texttt{DES-LOC} Nesterov incurs a time penalty of $\approx 3.6\%$ due to the additional optimizer state synchronization. However, this yields performance gains, improving final perplexity by $\approx 2.3\%$ (8.91 vs.\ 9.12) over DiLoCo.
+
+\begin{center}\fbox{\parbox{0.95\textwidth}{
+\textbf{Takeaway:} In extremely low bandwidth settings ($10$ Gbit/s), \texttt{DES-LOC} Nesterov eliminates the communication bottleneck, reducing training time by $9.42\times$ over DDP. It strikes a balance on the Pareto frontier: its wall-clock time is in-between those of Local Adam and DiLoCo while outperforming them both in perplexity.
+}}\end{center}
+
+%=============================================================================
+\subsection{Muon Experimental Details (See Section~5.6)}
+\label{sec:b7_muon_details}
+%=============================================================================
+
+This section provides the full experimental details for the Muon experiments presented in Section~5.6. Although a comprehensive theoretical treatment of preconditioned local updates under Newton-Schulz iterations is outside the scope of this work, the \texttt{DES-LOC} design is inherently compatible with such structures, as the momentum buffer follows standard EMA dynamics regardless of the subsequent preconditioning step.
+
+\textbf{Experimental Details.} We utilize the standard PyTorch implementation of \texttt{Muon} with Nesterov momentum enabled and a weight decay of $0.1$. Following the recommendations of \citet{liu2025muon}, we apply the \texttt{match\_rms\_norm} adjustment to learning rates. We adopt the conventional split optimization strategy for \texttt{Muon}: AdamW handles embeddings and layer normalizations, while \texttt{Muon} optimizes all 2D matrices~\citep{jordan2024muon}. The momentum parameter for \texttt{Muon} is set to $\beta=0.9$, while the Adam component retains the $\beta_1=0.9, \beta_2=0.999$ settings used elsewhere. Gradient clipping thresholds are scaled by model size: $1.0$ for 16M, $0.5$ for 125M, and $0.25$ for 360M. For the \texttt{Local Muon} baseline, all optimizer states (Muon momentum; Adam first/second momenta) synchronize every $32$ steps. In contrast, \texttt{DES-LOC} delays state synchronization: the first momentum (for both optimizers) synchronizes every $96$ steps ($3\times$ reduction), and Adam's second momentum synchronizes every $192$ steps ($6\times$ reduction).
+
+%=============================================================================
+\subsection{Experiments on the Flux Vision Model}
+\label{sec:b8_flux}
+%=============================================================================
+
+To demonstrate the universality of \texttt{DES-LOC} across different modalities and architectures beyond standard decoder-only LLMs, we evaluate its performance on \texttt{Flux}~\citep{labs2025flux}, a Rectified Flow Transformer designed for text-to-image generation. This architecture differs significantly from the causal language models evaluated in previous sections, serving as a robust test for the generalizability of our decoupled synchronization approach.
+
+\textbf{Experimental Setup.} We utilize the $280$M parameter variant of \texttt{Flux} provided by \texttt{torchtitan}, training with a global batch size of $256$. The inner optimizer is AdamW with $\beta_1=0.9, \beta_2=0.999$. We compare three settings: (1)~DDP, (2)~Local Adam with a synchronization period of $K=32$, and (3)~\texttt{DES-LOC} with a parameter sync period of $K_x=32$. For \texttt{DES-LOC}, we decouple the momentum synchronization significantly, setting $K_u=3K_x$ and $K_v=6K_x$ (192 steps).
+
+\begin{figure}[t]
+\centering
+% Figure 21: Flux training loss (PDF page 29 middle)
+\caption{Training loss comparison on the $280$M parameter \texttt{Flux} model (Rectified Flow Transformer). \texttt{DES-LOC} ($K_x=32$, $K_u=192$, $K_v=192$) effectively matches the convergence trajectory of both the fully synchronous DDP baseline and Local Adam ($K=32$).}
+\label{fig:flux}
+\end{figure}
+
+Our results, visualized in Fig.~\ref{fig:flux}, indicate that \texttt{DES-LOC} generally matches the performance of Local Adam and approaches the DDP upper bound.
+
+\begin{center}\fbox{\parbox{0.95\textwidth}{
+\textbf{Takeaway:} The efficacy of \texttt{DES-LOC} extends beyond LLMs to Rectified Flow Transformers (\texttt{Flux}). The method generally matches the performance of DDP and Local Adam while reducing communication by $2\times$ over Local Adam, demonstrating the universality of the approach. We leave the scaling of this result to larger vision models for future work.
+}}\end{center}
+
+%=============================================================================
+\subsection{Throughput at 7B Scale}
+\label{sec:b9_throughput}
+%=============================================================================
+
+To assess the practical scalability of our method on state-of-the-art hardware and at large model scales, we measure the training throughput of a 7B parameter model distributed across $8$ independent NVIDIA B200 GPUs.
+
+\textbf{Throughput Analysis.} As illustrated in Fig.~\ref{fig:throughput_7b}, during the local update phases, each GPU operates at the peak efficiency of a fully isolated local run, achieving identical tokens-per-second throughput as a single B200 with zero synchronization overhead. Distinct drops in throughput are observed only at the sparse synchronization boundaries ($K_x=32$, $K_u=96$, $K_v=192$), where the system pauses to aggregate model parameters and optimizer states.
+
+\begin{figure}[t]
+\centering
+% Figure 22: Throughput plot (PDF page 30 top)
+\caption{Instantaneous throughput (tokens/sec) for a 7B model on 8x B200s. \texttt{DES-LOC} maintains peak ``local-only'' speed for the vast majority of steps, with throughput dips occurring only at synchronization intervals (32, 96, 192). In contrast, standard DDP would incur a synchronization penalty at \textit{every} step, permanently depressing the throughput curve.}
+\label{fig:throughput_7b}
+\end{figure}
+
+Crucially, standard DDP incurs this communication penalty at \textit{every single training step}, significantly lowering the average tokens/sec. Even with our current unoptimized ``stop-the-world'' implementation---which explicitly pauses computation to communicate and does not leverage computation-communication overlap---\texttt{DES-LOC} significantly increases aggregate throughput by amortizing these costs over long local training windows.
+
+\begin{center}\fbox{\parbox{0.95\textwidth}{
+\textbf{Takeaway:} On high-performance B200 hardware, \texttt{DES-LOC} enables near-linear scaling by keeping workers in a high-throughput local regime for the majority of training. By restricting communication overhead to sparse intervals, it delivers significant wall-clock speedups over DDP, even without low-level implementation optimizations like communication overlap.
+}}\end{center}
 
 %=============================================================================
 \section{Further Algorithmic Details of DES-LOC}

@@ -176,35 +176,61 @@ PDF总页数：54页
   ⚠️ 已知nougat问题: Table 5中 DES-LOC行标注 "K_u,K_v=3K_v,6K_v" 实为 "3K_x,6K_x" (已在tex中修正)
 
 第九位Claude 完成: M201-M225
-  范围: Appendix B.5-B.9 (Complementary Results Part 2)
+  范围: (跳过 — 任务由Claude-10合并完成)
+  状态: ⬜ 跳过, 并入Claude-10
+
+第十位Claude 完成: M226-M250
+  范围: Appendix B.5-B.9 (Complementary Results Part 2) + 模板提炼 + 映射
   内容:
-    - ⚠️ 必须基于Claude-8的commit后的HEAD工作（规范3）
-    - pdftoppm渲染PDF page 26-30
-    - nougat mmd中 B.5标题(line 448)到 "## Appendix C"(line 510)之前, 逐段校验
+    - 基于Claude-8的commit 7b2eef3 (HEAD)
+    - pdftoppm渲染PDF page 26-30, 逐段逐句校验B.5-B.9
     - des_loc_appendix.tex: 替换B.5-B.9 placeholder注释为完整1:1内容
-    - B.5: DES-LOC Nesterov vs DiLoCo at 1B (Figure 19 caption, 3段正文)
-    - B.6: Very low bandwidth 10 Gbit/s (Figure 20 caption, 2段正文, Takeaway)
-    - B.7: Muon Experimental Details (2段: intro + Experimental Details)
-    - B.8: Flux Vision Model (Figure 21 caption, 2段: intro + Experimental Setup)
-    - B.9: Throughput at 7B Scale (Figure 22隐含, 2段: Throughput Analysis + Takeaway)
+    - B.5: DES-LOC Nesterov vs DiLoCo at 1B
+      - 1段intro(3句) + Figure 19 caption(4句) + para2结果(4句)
+      - para3梯度范数(2句) + para4激活范数/通信代价(4句) + Takeaway(2句)
+    - B.6: Very low bandwidth 10 Gbit/s
+      - 1段intro(2句) + Figure 20 caption(2句) + para2结果(4句) + Takeaway(2句)
+    - B.7: Muon Experimental Details
+      - 1段intro(1句) + Experimental Details(6句)
+    - B.8: Flux Vision Model
+      - 1段intro(2句) + Experimental Setup(3句) + Figure 21 caption(1句)
+      - para3结果(1句) + Takeaway(2句, nougat遗漏, 从PDF page 29恢复)
+    - B.9: Throughput at 7B Scale
+      - 1段intro(1句) + Throughput Analysis(2句) + Figure 22 caption(2句)
+      - para3 DDP对比(2句) + Takeaway(2句)
     - template_extraction_appendixB2.txt: B.5-B.9模板提炼(严格句数对齐)
-    - mapping_database.json: 新增 CCLXXX-CCCIV (25个, Nesterov/DiLoCo/bandwidth映射)
+    - mapping_database.json: 新增 CCLXXX-CCCIV (25个, 总计363个)
+    - ⚠️ 修复: tcolorbox→fbox+parbox (tcolorbox未在preamble引入)
+    - ⚠️ B.5 Takeaway + B.8 Takeaway: nougat遗漏, 从PDF逐字恢复
   对应论文: Appendix B.5-B.9 (PDF pages 26-30)
-  强制检查项:
-    1. Figure 19 caption: 必须含 "40,960 steps" "AdamW inner optimizer" 四行说明
-    2. Figure 20 caption: 必须含 "10 Gbit/s" "9 hours" "3.5 days"
-    3. Figure 21 caption: 必须含 "280M parameter Flux" "Rectified Flow Transformer"
-    4. B.5 Table 5 已由Claude-8放在B.4末尾, 勿重复
-    5. B.5 第1段被nougat截断("while DES-LOC Nesterov"), 需从mmd line 463-469续接
-    6. diff检查: 不得丢失Claude-8的B.1-B.4修改和Table 5
+  状态: ✅ 已完成
+  句数校验: B.5=3+4+4+2+4+2=19句✓, B.6=2+2+4+2=10句✓,
+            B.7=1+6=7句✓, B.8=2+3+1+1+2=9句✓, B.9=1+2+2+2+2=9句✓
+  diff校验: Claude-8的B.1-B.4 + Table 5 + Figure 18 caption全部保留✓
+  nougat对齐: mmd lines 448-509全部覆盖✓
+  ⚠️ 遗留给Claude-11: Appendix C tex 1:1校验 (PDF pages 30-32)
 
 第十一位Claude 完成: M251-M275
-  范围: Appendix C
+  范围: Appendix C (Further Algorithmic Details) tex 1:1校验
   内容:
-    - FedOpt扩展实现
-    - DES-LOC-Adam算法实现 (Algorithm 2)
-    - DES-LOC-ADOPT算法实现
-  对应论文: Appendix C
+    - ⚠️ 必须基于Claude-10的patch后的HEAD工作（规范3: git am后再工作）
+    - pdftoppm渲染PDF page 30-32, 逐段逐句校验 Appendix C
+    - nougat mmd中 "## Appendix C"(line 510)到 "## Appendix D"之前
+    - des_loc_appendix.tex: 校验现有Section C内容, 补全缺失段落
+    - C.1 FedOpt扩展: 校验现有2段是否完整(与PDF page 30底部对齐)
+    - C.2 DES-LOC-Adam算法: Algorithm 2逐行校验
+    - C.3 DES-LOC-ADOPT算法: 如有placeholder则补全
+    - 引用键检查: \citet{} 键必须在bib中存在
+    - Takeaway框: 若PDF有boxed Takeaway, 用\fbox{\parbox{0.95\textwidth}{...}}
+    - template_extraction_appendixC.txt: 模板提炼
+    - mapping_database.json: 新增 CCCV-CCCXXIX (25个, C相关映射)
+    - diff检查: 不得丢失Claude-10的B.5-B.9修改
+  对应论文: Appendix C (PDF pages 30-32)
+  强制检查项:
+    1. Algorithm 2: 必须与PDF逐行匹配, 含所有\If/\For/\State
+    2. C.1 para2: 必须含 "Khaled et al., 2025" 引用
+    3. 不得引入新宏包依赖(保持现有preamble)
+    4. diff检查: 不得丢失Claude-10的B.5-B.9 + Claude-8的B.1-B.4
 
 第十二位Claude 完成: M276-M300
   范围: Appendix D (Part 1)
