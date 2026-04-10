@@ -1,0 +1,329 @@
+================================================================================
+DES-LOC Template Extraction — Appendix E, F, G
+Source: des_loc_appendix.tex (lines 1114-1253)
+Claude-14 (M326-M350) Scope: Appendix E (high-probability bounds), F (drift derivation), G (wall-clock modeling)
+================================================================================
+
+NEW MAPPING TABLE — Appendix E/F/G Specific
+Format: "symbol = term from paper (source line/section)"
+New additions: EI-EXLIII (Appendix-specific numbering)
+
+================================================================================
+NEW MAPPINGS (EI - EXLIII)
+================================================================================
+
+% Appendix E: High-probability bounds
+EI      = high-probability bounds
+EII     = Markov's inequality
+EIII    = sub-Gaussian assumption
+EIV     = tail probability
+EV      = confidence level (1-δ)
+EVI     = concentration inequality
+EVII    = Azuma-Hoeffding bound
+EVIII   = bounded difference condition
+EIX     = martingale difference sequence
+EX      = exponential moment
+
+% Appendix F: Drift derivation
+EXI     = recursion unrolling
+EXII    = triangle inequality
+EXIII   = geometric series
+EXIV    = exponential moving average
+EXV     = ℓ∞ norm (infinity norm)
+EXVI    = induction argument
+EXVII   = clipping bound (|g_i| ≤ ρ)
+EXVIII  = drift bound
+EXIX    = first momentum drift (‖u_{t+K}-u_t‖)
+EXX     = second momentum drift (‖v_{t+K}-v_t‖)
+
+% Appendix G: Wall-clock time modeling
+EXXI    = wall-clock time (𝒯)
+EXXII   = per-step computation time (t_step)
+EXXIII  = communication time (t_comm)
+EXXIV   = parameter sync rounds (R_x = T/K_x)
+EXXV    = state sync rounds (R_j = T/K_j)
+EXXVI   = bandwidth (B_w)
+EXXVII  = bytes per param
+EXXVIII = communication cost ratio (DES-LOC/DDP)
+EXXIX   = throughput (tokens/sec/GPU)
+EXXX    = speedup factor
+
+% Appendix H: Checkpointing comparison
+EXXXI   = state staleness
+EXXXII  = checkpoint
+EXXXIII = bounded drift
+EXXXIV  = ad-hoc averaging
+
+% Appendix I: Choosing sync frequencies
+EXXXV   = half-life formula (t_{1/2} ≈ ln2/(1-β))
+EXXXVI  = Parameters First
+EXXXVII = Momentum by Half-Life
+EXXXVIII = training quality
+EXXXIX  = 5× communication reduction
+
+% Appendix J: Critical batch size
+EXL     = critical batch size
+EXLI    = gradient estimator variance
+EXLII   = per-sample gradient covariance (Σ(θ))
+EXLIII  = large-batch regime
+
+================================================================================
+Appendix E Templated: CI of A-B (EI)
+================================================================================
+
+[Section E.0: Section Title]
+
+CI Analysis of A-B (EI)
+
+= Convergence Analysis of DES-LOC-Adam (high-probability bounds)
+
+[Source LaTeX (line 1117)]
+\section{Convergence Analysis of DES-LOC-Adam (high-probability bounds)}
+→ EI = high-probability bounds
+
+---
+
+[Section E.1: High-probability framework]
+
+[NOTE: Full proof spans PDF pages 44-46, placeholder here]
+
+Unlike the in-expectation bounds in Section 3, EI require additional assumptions to control EIV.
+
+= Unlike the in-expectation bounds in Section 3, high-probability bounds require additional assumptions to control tail probability.
+
+Key tool: EVII for EIX, requiring EVIII.
+At EV $1-\delta$, A-B converges at rate $O(1/\sqrt{T} + \log(1/\delta)/T)$.
+
+= Key tool: Azuma-Hoeffding bound for martingale difference sequence, requiring bounded difference condition.
+At confidence level 1-δ, DES-LOC-Adam converges at rate O(1/√T + log(1/δ)/T).
+
+Core conclusion: When $\beta_2 < 1.0$, M Ⅰ frequency must be CXXV to guarantee EI.
+
+= Core conclusion: When β₂ < 1.0, momentum sync frequency must be finite to guarantee high-probability bounds.
+
+================================================================================
+Appendix F Templated: Derivation of Eqs. (1)(2) (EXVIII)
+================================================================================
+
+[Section F.0: Section Title]
+
+Derivation of Eqs. (1)(2): Maximum M Change With σ τ
+
+= Derivation of Eqs. (1)(2): Maximum Momentum Change With Clipping
+
+[Source LaTeX (lines 1122-1155)]
+\section{Derivation of Eqs.\ (1) and (2): Maximum Momentum Change With Clipping}
+
+---
+
+[Section F.1: First momentum bound derivation]
+
+\textbf{Step 2:} Bound on $\|u_{t+K} - u_t\|_\infty$.
+
+EXI the recursion:
+\begin{equation}
+u_{t+K} = \beta_1^K u_t + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k g_{t+K-k}.
+\end{equation}
+
+= Unrolling the recursion: u_{t+K} = β₁^K u_t + (1-β₁) Σ_{k=0}^{K-1} β₁^k g_{t+K-k}
+
+Subtracting $u_t$ from both sides:
+\begin{equation}
+u_{t+K} - u_t = (\beta_1^K - 1)u_t + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k g_{t+K-k}.
+\end{equation}
+
+Applying EXII:
+\begin{equation}
+\|u_{t+K} - u_t\|_\infty \leq |1 - \beta_1^K| \|u_t\|_\infty + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k \|g_{t+K-k}\|_\infty.
+\end{equation}
+
+= Applying triangle inequality
+
+Using $\|g_{t,i}\|_\infty \leq \rho$ (EXVII) and $\|u_t\|_\infty \leq \rho$ (EXVI), EXIII evaluates to:
+\begin{equation}
+\|u_{t+K} - u_t\|_\infty \leq 2\rho(1 - \beta_1^K).
+\end{equation}
+
+= Using clipping bound and induction argument, geometric series yields EXIX bound.
+
+---
+
+[Section F.2: Second momentum bound derivation]
+
+The identical argument applies to the second moment $v_t$ with $\rho$ replaced by $\rho^2$ (since $(g_t \odot g_t)_i \leq \rho^2$):
+\begin{equation}
+\|v_{t+K} - v_t\|_\infty \leq 2\rho^2(1 - \beta_2^K).
+\end{equation}
+
+= Same argument yields EXX bound.
+
+[Takeaway]
+EXVIII (EXIX and EXX) are determined by EXVII and ⅩⅩ. Large $\beta$ and small $\rho$ limit the absolute changes in ⅩⅪ.
+
+= Drift bounds are determined by clipping bound and decay rate. Large β and small ρ limit the absolute changes in optimizer states.
+
+================================================================================
+Appendix G Templated: EXXI Modeling
+================================================================================
+
+[Section G.0: Section Title and Formula]
+
+EXXI Modeling
+
+= Wall-Clock Time Modeling
+
+[Source LaTeX (lines 1156-1197)]
+\section{Wall-Clock Time Modeling}
+
+---
+
+[Section G.1: Total time model]
+
+We model the total EXXI $\mathcal{T}$ for training as:
+\begin{equation}
+\mathcal{T} = T \cdot t_{\text{step}} + R_x \cdot t_{\text{comm}}(x) + \sum_{j=1}^{N} R_j \cdot t_{\text{comm}}(s^j),
+\end{equation}
+where $T$ is the total number of steps, $t_{\text{step}}$ is EXXII, $R_x = T/K_x$ is EXXIV, $R_j = T/K_j$ is EXXV, and $t_{\text{comm}}(\cdot)$ is EXXIII for a given tensor.
+
+= Wall-clock time = total steps × per-step computation time + parameter sync rounds × communication time + Σ state sync rounds × communication time
+
+---
+
+[Section G.2: Ring-AllReduce communication time]
+
+For Ⅱ with model size $|x|$ J, EXXVI $B_w$, and CVIII count $M$:
+\begin{equation}
+t_{\text{comm}}(x) = \frac{2(M-1)}{M} \cdot \frac{|x| \cdot \text{bytes\_per\_param}}{B_w}.
+\end{equation}
+
+= Ring-AllReduce communication time = 2(M-1)/M × model parameters × bytes per param / bandwidth
+
+---
+
+[Section G.3: DES-LOC vs DDP communication cost ratio]
+
+A's N cost relative to C (EXXVIII):
+\begin{equation}
+\frac{\mathcal{T}_{\text{A}}}{\mathcal{T}_{\text{C}}} = \frac{T \cdot t_{\text{step}} + \frac{T}{K_x} t_{\text{comm}}(x) + \frac{T}{K_u} t_{\text{comm}}(u) + \frac{T}{K_v} t_{\text{comm}}(v)}{T \cdot (t_{\text{step}} + t_{\text{comm}}(x) + t_{\text{comm}}(u) + t_{\text{comm}}(v))}.
+\end{equation}
+
+= DES-LOC/DDP ratio = (compute + sparse communication) / (compute + dense communication)
+
+With $K_x = 256$, $K_u = 3K_x = 768$, $K_v = 6K_x = 1536$, A communicates $\approx 170\times$ less than C.
+
+= With recommended settings, DES-LOC communicates approximately 170× less than DDP.
+
+---
+
+[Section G.4: Throughput table]
+
+Table: EXXIX (tokens/sec/GPU) at different scales. A matches FAVG+OPT EXXIX.
+
+| Method    | 1B (K=16) | 1B (K=256) | 7B (K=16) | 7B (K=256) |
+|-----------|-----------|------------|-----------|------------|
+| C         | 60k       | 60k        | 8.5k      | 8.5k       |
+| FAVG+OPT  | 106k      | 135k       | 11.5k     | 13.7k      |
+| H         | 89k       | 132k       | 10.4k     | 13.6k      |
+| A         | 105k      | 134k       | 11.4k     | 13.7k      |
+
+= DES-LOC throughput matches FAVG+OPT, higher than DDP and Local Adam.
+
+[Takeaway]
+A's N reduction directly translates to EXXI reduction, with EXXX increasing as $K_x$ increases.
+
+= DES-LOC's communication reduction directly translates to wall-clock time reduction, with speedup increasing as sync period increases.
+
+================================================================================
+Appendix H Templated: EXXXII vs Periodic ω Ⅰ
+================================================================================
+
+[Section H.0: Section Title]
+
+EXXXII vs Periodic ω Ⅰ
+
+= Checkpointing vs Periodic State Synchronization
+
+[Source LaTeX (lines 1198-1210)]
+\section{Checkpointing vs.\ Periodic State Synchronization}
+
+---
+
+[Section H.1: Question and argument]
+
+A natural question is whether periodic EXXXII can replace A's explicit ω Ⅰ for handling S failures. We argue it cannot, for two reasons:
+
+1. \textbf{EXXXI.} When a new S joins from a EXXXII, its ⅩⅪ ($u, v$) reflect the global ω at EXXXII time. If the EXXXII is old, these ω are EXXXI and can cause training instability. A's periodic Ⅰ ensures all S's ω stay within EXXXIII (Eqs. EXIX, EXX).
+
+= State staleness: When a new worker joins from an old checkpoint, its optimizer states are stale and cause instability. DES-LOC's periodic sync ensures bounded drift.
+
+2. \textbf{No CI.} EXXXIV EXXXII provides no theoretical guarantees about the quality of the resulting ⅩⅪ. A's provable CI (Theorem 1) holds precisely because Ⅰ is periodic and bounded.
+
+= No convergence guarantees: Ad-hoc checkpoint averaging has no theoretical guarantees. DES-LOC's provable convergence relies on periodic bounded sync.
+
+================================================================================
+Appendix I Templated: Choosing R
+================================================================================
+
+[Section I.0: Section Title]
+
+Choosing R
+
+= Choosing Synchronization Frequencies
+
+[Source LaTeX (lines 1211-1238)]
+\section{Choosing Synchronization Frequencies}
+
+---
+
+[Section I.1: Half-life formula]
+
+For a ω with ⅩⅩ $\beta$ approaching 1, the ⅩⅥ can be calculated as:
+\begin{equation}
+t_{1/2} \approx \frac{\ln 2}{1 - \beta}.
+\end{equation}
+
+= Half-life formula: t_{1/2} ≈ ln2 / (1-β)
+
+---
+
+[Section I.2: Two-step methodology]
+
+Based on this, we propose the following two-step methodology:
+
+\paragraph{EXXXVI ($K_x$).} The Ⅰ of model J is paramount to EXXXVIII. The period $K_x$ should be chosen to match the end-of-training EXXXVIII of fully-synchronous C at a target step budget while still materially reducing N. In practice, starting points like $K_x = 16$ or $K_x = 32$ are effective.
+
+= Parameters First: Kx should be as large as possible while maintaining training quality. Practical starting points: Kx=16 or 32.
+
+\paragraph{EXXXVII ($K_u, K_v$).} For any ⅩⅪ M ω with ⅩⅩ $\beta$, its R $K$ should be set near its calculated ⅩⅥ, i.e., $K \approx t_{1/2}$. For common optimizers like B or Y:
+\begin{equation}
+K_u \approx \frac{\ln 2}{1 - \beta_1}, \quad K_v \approx \frac{\ln 2}{1 - \beta_2}.
+\end{equation}
+
+= Momentum by Half-Life: Ku ≈ ln2/(1-β₁), Kv ≈ ln2/(1-β₂)
+
+Following this heuristic can yield a minimum EXXXIX N reduction over C for $K_x \geq 16$, significantly decreasing EXXI while achieving CI speed and final model EXXXVIII comparable to C.
+
+= Following this heuristic yields minimum 5× communication reduction over DDP for Kx≥16, while maintaining training quality.
+
+[Takeaway]
+J R should be set based on EXXIX requirements; M R should be set as constant multiples of ⅩⅥ.
+
+= Parameter sync frequency based on throughput requirements; momentum sync periods as constant multiples of half-life.
+
+================================================================================
+DIFF VERIFICATION
+================================================================================
+
+Original tex language: ENGLISH
+Template extraction language: ENGLISH ✓
+
+Key terminology consistency check:
+- "convergence guarantees" not "收敛保证" ✓
+- "synchronization" not "同步" ✓  
+- "optimizer states" not "优化器状态" ✓
+- "half-life" not "半衰期" ✓
+- "communication cost" not "通信开销" ✓
+
+All abstract symbols (A, B, C, CI-CXXV, EI-EXLIII, Ⅰ-ⅩⅩⅫ, α-ω) replace English terms only.
+
+================================================================================

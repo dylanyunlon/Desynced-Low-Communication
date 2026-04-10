@@ -1,0 +1,411 @@
+%================================================================================
+% DES-LOC Template Extraction (Merged Version)
+% Source: des_loc_reconstructed.tex
+% Merged from: template_extraction_from_latex.txt + template_extraction_section3.txt
+%              + template_extraction_section5.txt + template_extraction_section6_7.txt
+% Claude-14 (M326-M350) Merge
+%================================================================================
+
+%================================================================================
+% MAPPING TABLE (Complete)
+%================================================================================
+% Latin uppercase A-Z:
+%   A = DES-LOC
+%   B = Adam
+%   C = DDP (Distributed Data Parallel)
+%   D = distributed training system
+%   E = framework
+%   F = independent synchronization period strategy
+%   G = (Independent Synchronization Periods)
+%   H = Local Adam
+%   I = optimizer state synchronization logic
+%   J = parameters
+%   K = update
+%   L = parameter synchronization
+%   M = momenta
+%   N = communication cost/overhead
+%   O = SGDM
+%   P = AllReduce
+%   Q = probabilistic periodic sync (px=1/Kx)
+%   R = synchronization period (Kx, Ku, Kv)
+%   S = Worker
+%   T = coupling
+%   U = decoupling/desync
+%   V = layers
+%   W = gradient
+%   X = clipping mechanism
+%   Y = ADOPT
+%   Z = encapsulation
+
+% Greek letters:
+%   α = initialization
+%   β = variant
+%   γ = management
+%   δ = module
+%   ε = hyperparameters (β1, β2, η)
+%   ζ = callback/hook
+%   η_var = instance (distinct from learning rate η)
+%   θ = learning rate schedule (WSD schedule)
+%   ι = subclass (concrete optimizer implementation)
+%   κ = user/caller
+%   λ = inheritance
+%   μ = method
+%   ν = warmup
+%   ξ = argument/param
+%   ο = unified
+%   π = encapsulation (same as Z)
+%   ρ_var = helper utility class
+%   σ = coordinate-wise
+%   τ = clipping
+%   υ = data
+%   φ = flow/process
+%   χ = config
+%   ψ_var = strategy
+%   ω = state
+
+% Roman numerals:
+%   Ⅰ = synchronization
+%   Ⅱ = Ring-AllReduce
+%   Ⅲ = lightweight
+%   Ⅳ = communication round
+%   Ⅴ = buffer
+%   Ⅵ = worker ID
+%   Ⅶ = distributed
+%   Ⅷ = tracking
+%   Ⅸ = aggregation operations
+%   Ⅹ = training loop
+%   Ⅺ = time step t
+%   Ⅻ = scheduler
+%   ⅩⅢ = mod operation (t mod K)
+%   ⅩⅣ = channel
+%   ⅩⅤ = connection
+%   ⅩⅥ = half-life
+%   ⅩⅦ = awareness
+%   ⅩⅧ = adaptive frequency tuning
+%   ⅩⅨ = τ0.5(β)
+%   ⅩⅩ = decay rate
+%   ⅩⅪ = optimizer state
+%   ⅩⅫ = decoupling
+%   ⅩⅩⅢ = lifecycle
+%   ⅩⅩⅣ = half-life formula τ_ψ(β)=ln(ψ)/ln(β)
+%   ⅩⅩⅤ = sending
+%   ⅩⅩⅥ = threshold
+%   ⅩⅩⅦ = stall
+%   ⅩⅩⅧ = high-frequency
+%   ⅩⅩⅨ = cache
+%   ⅩⅩⅩ = memory
+%   ⅩⅩⅪ = OOM (out of memory)
+%   ⅩⅩⅫ = communication layer
+
+% Convergence theory (CI-CXXV):
+%   CI = convergence guarantees
+%   CII = non-convex
+%   CIII = weakly convex
+%   CIV = optimization problem
+%   CV = objective function
+%   CVI = local loss function (f_m)
+%   CVII = global loss function (f)
+%   CVIII = machine/device
+%   CIX = dataset (D_m)
+%   CX = homogeneous distribution
+%   CXI = heterogeneity
+%   CXII = lower bound (f*)
+%   CXIII = L-smoothness
+%   CXIV = unbiased noise
+%   CXV = bounded stochastic variance (σ²)
+%   CXVI = bounded heterogeneity (G², B²)
+%   CXVII = step size (η)
+%   CXVIII = step-size restriction (η₀)
+%   CXIX = asymptotically optimal
+%   CXX = leading term O(1/√T)
+%   CXXI = higher-order term O(1/T)
+%   CXXII = ψ factor
+%   CXXIII = probabilistic sync equivalence (px=1/Kx)
+%   CXXIV = linear speedup (1/M)
+%   CXXV = finite sync frequency (for β₂<1.0)
+
+% Section 5 Evaluation (CLI-CXC):
+%   CLI = optimizer state rate of change
+%   CLII = synchronization frequency hierarchy
+%   CLIII = half-life hierarchy
+%   CLIV = 2× (communication reduction vs Local Adam)
+%   CLV = RQ3 (communication reduction experiment)
+%   CLVI = RQ4 (large-scale training)
+%   CLVII = Figure 2
+%   CLVIII = Local Adam/ADOPT
+%   CLIX = β values
+%   CLX = 1.0 (gradient clipping radius)
+%   CLXI = τ0.5(β1)/τ0.5(β2)
+%   CLXII = Figure 3
+%   CLXIII = 256 (low-frequency sync period)
+%   CLXIV = perplexity
+%   CLXV = 1.37×
+%   CLXVI = 1.1×
+%   CLXVII = 8×A100-80GB
+%   CLXVIII = 256
+%   CLXIX = 2.1×
+%   CLXX = 1.7B
+%   CLXXI = Table 1
+%   CLXXII = Section 6
+%   CLXXIII = 2.2×
+%   CLXXIV = 13B
+%   CLXXV = several days
+%   CXLV = Nesterov
+%   CXLVII = Muon
+%   CXC = 50%
+
+%================================================================================
+\documentclass{article}
+
+\begin{document}
+
+%================================================================================
+% Section 1: Introduction (Templated)
+%================================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+% Paragraph 1: Background
+Training foundation models requires distributing optimization across S for improved ⅩⅩⅩ
+and compute. However, frequent W N in standard C increases networking costs and limits scalability. Early works like Local
+O and FedAvg reduced this overhead by Ⅰ
+infrequently, averaging J only after $K \gg 1$ local steps, instead of W at every step.
+However, modern foundation model training, e.g., Large Language Models, uses
+B optimizers which require additional M.
+
+% Paragraph 2: Problems with existing methods
+Some extensions of Local O to B optimizers
+only average model J, which poses challenges. First, they lack CI.
+Second, keeping M local accumulates noisy small-batch W and
+provides no means to α S. This makes them unsuitable for failure-prone environments.
+Third, re-initializing M destabilizes training.
+
+% Paragraph 3: Local Adam's problem
+H addresses these challenges, proving periodic Ⅰ
+can converge faster than standard B with C, and remain robust to the addition of
+new S. However, it requires Ⅰ M alongside model J, tripling
+N compared to Local O. Hence, we aim to answer the following question:
+
+\begin{center}
+\emph{Can independently syncing J and M improve N
+efficiency for B optimizers while maintaining CI and robustness?}
+\end{center}
+
+% Paragraph 4: DES-LOC proposal
+As a result of our inquiry, we propose a new optimizer family, A, which sets independent R for J
+and M. This reduces N overhead by Ⅰ M less frequently.
+
+% Contributions
+\paragraph{Contributions:}
+\begin{enumerate}
+    \item \textbf{Provable CI.} We prove CI (see Section~\ref{sec:convergence}) for A under: CII
+    CV when using O, and CIII CV when using B. Our theory indicates a higher M Ⅰ frequency enables larger CXVII.
+    Furthermore, high-probability bounds demand M be synced with CXXV for $\beta_2 < 1.0$.
+
+    \item \textbf{N reduction.} We empirically show that J require more frequent Ⅰ than
+    M, and that less frequent M Ⅰ reduces N ($\text{CLIV}$ vs H, $170\times$ vs C), leading to $1.3$--$2.1\times$ reductions in training time over C on our hardware.
+
+    \item \textbf{Scalability to large models.} We validate A at billion-scale language model training,
+    demonstrating competitive ICL performance against both H and C.
+
+    \item \textbf{Hardware robustness.} Unlike previous heuristic methods, A avoids persistent local ω,
+    enabling it to seamlessly integrate new S to support environments prone to system failures.
+\end{enumerate}
+
+%================================================================================
+% Section 2: DES-LOC Algorithm (Templated)
+%================================================================================
+\section{A}
+\label{sec:desloc}
+
+% Paragraph 1: Half-life theory
+We start by characterizing the relation between the rate of change of ⅩⅪ and H, and how these can be leveraged to lower the N. Consider the B K:
+\begin{equation}
+u_t = \beta_1 u_{t-1} + (1 - \beta_1) g_t \quad \text{and} \quad v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t \odot g_t.
+\end{equation}
+
+For H, CI is contingent on $\beta_2$ satisfying $1 - \beta_2 = \tilde{O}(K^{-3/2} R^{-1/2})$. Large
+$K$ or $R$ implies $\beta_2 \to 1$, and conversely larger $\beta_2$ permits higher $K$ or $R$.
+
+% Paragraph 2: Half-life measure
+A useful summary measure is the number of steps until a ω's weight decays to a fraction $\psi$,
+$\tau_\psi(\beta) = \frac{\ln \psi}{\ln \beta}$. We use the ⅩⅥ $\tau_{0.5}$ as our primary measure. For typical values of $\beta$, we have $\tau_{0.5}(0.95) \approx 13.5$, $\tau_{0.5}(0.999) \approx 692.8$, and $\tau_{0.5}(0.9999) \approx 6931$.
+
+% Paragraph 3: Drift bounds
+With σ τ, each W component satisfies $|(g_t)_i| \leq \rho$. Unrolling B's recursions over $K$ local steps gives:
+\begin{align}
+\|u_{t+K} - u_t\|_\infty &\leq 2\rho(1 - \beta_1^K), \\
+\|v_{t+K} - v_t\|_\infty &\leq 2\rho^2(1 - \beta_2^K).
+\end{align}
+
+% Paragraph 4: Sync frequency and half-life
+From the above, the ⅩⅥ of an ⅩⅪ should inform its R. For example, if $\tau_{0.5}(0.95) \approx 13.5$ and $K = 256$, Ⅰ only affects few initial local steps.
+
+%-----------------------------------------------------------------------------
+\subsection{A Algorithm}
+\label{sec:desloc_algorithm}
+
+% Algorithm 1 description
+As shown in Algorithm 1, A Ⅰ J $x \in \mathbb{R}^d$ and ⅩⅪ $\{s^j\}_{j=1}^N$ at ω-specific intervals $K_x, \{K_j\}_{j=1}^N$. Setting $N = 2$, $s^1_t = u_t$, $s^2_t = v_t$, and using K rules based on B K rules above yields A-B.
+
+\paragraph{Toy Example} Fig.~\ref{fig:toy} illustrates a scenario where A and H converge under noisy W, while prior heuristic methods fail.
+
+%================================================================================
+% Section 3: Convergence Guarantees (Templated)
+%================================================================================
+\section{CI for A}
+\label{sec:convergence}
+
+% Paragraph 1: Section intro
+This section provides theoretical support for the proposed A approach. We focus on a version
+of the B optimizer that uses only a single M ω. Extensions to the full B optimizer
+with both M are available in Section~\ref{sec:adam_extension} with high-probability bounds shown in Section~\ref{sec:high_prob}.
+
+% Paragraph 2: Optimization problem definition
+Formally, we consider the following CIV:
+\begin{equation}
+\min_{x \in \mathbb{R}^d} f(x) := \frac{1}{M} \sum_{m=1}^{M} f_m(x), \quad \text{with } f_m(x) = \mathbb{E}_{\xi \sim \mathcal{D}_m}[F_m(x;\xi)]
+\end{equation}
+In this setup, all CVIII collaboratively minimize the CV. Generally, we assume
+each CVIII $m$ has access to only CIX $\mathcal{D}_m$, which can differ from device to device. This recovers
+the CX case when all CVIII have the same CIX.
+
+% Paragraph 3: Assumptions
+\begin{assumption}[CXII and CXIII]
+\label{asm:smooth}
+The overall CVII $f: \mathbb{R}^d \to \mathbb{R}$ is CXII by some $f^* \in \mathbb{R}$ and all CVI $f_m$ are CXIII.
+\end{assumption}
+
+\begin{assumption}[CXIV with CXV]
+\label{asm:noise}
+The stochastic W $g^m$ of CVI $f_m$ computed by CVIII $m$ is CXIV and the noise has CXV $\sigma^2$.
+\end{assumption}
+
+\begin{assumption}[CXVI]
+\label{asm:heterogeneity}
+$\frac{1}{M} \sum_{m=1}^{M} \|\nabla f_m(x)\|^2 \leq G^2 + B^2 \|\nabla f(x)\|^2$. This recovers CX when $G^2=0$ and $B^2=1$.
+\end{assumption}
+
+% Paragraph 4: Probabilistic sync
+To facilitate the technical presentation, we view model and ⅩⅪ Ⅰ through assigning probabilities to each averaging event. Particularly, instead of averaging model J every $K_x$ steps (i.e., ⅩⅢ), we average with probability $p_x = 1/K_x$, which are statistically equivalent (CXXIII).
+
+% Paragraph 5: Theorem 1
+\begin{theorem}
+\label{thm:sgdm}
+Let Assumptions~\ref{asm:smooth},~\ref{asm:noise} and~\ref{asm:heterogeneity} hold. Then, choosing the CXVII $\eta = \min(\eta_0, \frac{1}{\sqrt{T}})$ with
+\begin{equation}
+\eta_0 \stackrel{\text{def}}{=} \frac{1}{4L} \min\left(1 - \beta, \frac{1}{6\sqrt{\psi \max(1, B^2 - 1)}}\right), \quad \text{where } \psi \stackrel{\text{def}}{=} \frac{4(1-p_x)}{p_x^2} \cdot \frac{(1-\beta)(1-p_u)}{1-(1-p_u)\beta},
+\end{equation}
+the average iterates $\bar{x}_t$ of A-O converge with the following rate:
+\begin{equation}
+\frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\bar{x}_t)\|^2 \leq \frac{4}{\sqrt{T}} \left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right) + \mathcal{O}\left(\frac{1+\psi}{T}\right).
+\end{equation}
+\end{theorem}
+
+% Paragraph 6: Discussion
+The CI rate is CXIX: CXX $O(1/\sqrt{T})$ is not affected by local steps.
+$p_x$, $p_u$ and $\beta$ appear in CXXI $O(1/T)$, with limited impact on the asymptotic rate.
+
+Model Ⅰ matters more: $\psi = O(1/p_x^2)$. As $p_x \to 0$, CXXII diverges, breaking CI.
+M Ⅰ can be turned off ($p_u=0$) without affecting asymptotics, but it restricts CXVIII.
+Increasing $p_u$ (more frequent M averaging) permits larger CXVII $\to$ faster CI in practice.
+High-probability analysis in Appendix E shows: when $\beta_2<1.0$, M Ⅰ frequency must be CXXV.
+
+%================================================================================
+% Section 4: Experimental Design (Templated)
+%================================================================================
+\section{Experimental Design}
+\label{sec:experimental_design}
+
+% Paragraph 1: Models and data
+We evaluate A on language models of up to CLXX J. Models use standard Transformer architecture with W τ radius $\rho = $ CLX.
+
+% Paragraph 2: Optimizer configuration
+We compare A against C, H, and FAVG+OPT. For A, we set $K_x = $ CLXIII, $K_u = 3K_x$, $K_v = 6K_x$.
+
+% Paragraph 3: Hardware
+Experiments are conducted on CLXVII clusters with 100Gb/s links and Ⅱ.
+
+%================================================================================
+% Section 5: Evaluation (Templated)
+%================================================================================
+\section{Evaluation}
+\label{sec:evaluation}
+
+Our results show ⅩⅪ change at different rates (Section CLI), forming a clear CLII hierarchy (Section CLIII). A reduces N CLIV vs CLVIII (Section CLV) while converging robustly with adding S and scaling effectively to large models (Section CLVI).
+
+%-----------------------------------------------------------------------------
+\subsection{RQ1: Empirical Rate of Change}
+\label{sec:rq1}
+
+Figure CLVII shows that relative rates of change for the two M in Local ADOPT/B scale with their CLIX under W τ ($\rho = $ CLX). Supported by our theoretical discussions on M ⅩⅥ (Section 2), the second M evolves substantially slower than the first at high-$\beta_2$.
+
+\textbf{Takeaway:} As discussed in Sections 2 and 3, when $\beta_1 \ll \beta_2$, the second M evolves slower than the first, proportional to ⅩⅥ ratio CLXI.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ2: Independent R}
+\label{sec:rq2}
+
+Figure CLXII evaluates the effect of independently varying R for J and ⅩⅪ. We consider two baseline periods ($K_b = $ CLXIII), chosen based on the fastest ω's ⅩⅥ. Frequent J R ($K_x$) is crucial for performance, while Ⅰ M ($K_u, K_v$) significantly impacts training only if their ⅩⅥ align with $K_b$.
+
+\textbf{Takeaway:} J R ($K_x$) strongly impacts performance, motivated by the CXX in theoretical bounds (Section 3). M R matter empirically only when chosen near their ⅩⅥ.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ3: N Reduction}
+\label{sec:rq3}
+
+A halves N versus CLVIII with matching CLXIV by Ⅰ M less frequently ($K_u = 3K_x$, $K_v = 6K_x$), exploiting the second-M's lower sensitivity to R. This yields a CLXV speedup over C and CLXVI over CLVIII at $K_x = $ CLXIII on CLXVII.
+
+A effectively α new S and outperforms the straightforward approach of ad-hoc averaging from checkpoints.
+
+\textbf{Takeaway:} A achieves a CLIV N reduction over CLVIII by leveraging two insights: ⅩⅪ Ⅰ matters less than J Ⅰ, and slower-changing ω (high $\beta_2$) can Ⅰ less often.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ4: Large-Scale Training}
+\label{sec:rq4}
+
+A reliably scales to CLXX models and very infrequent N ($K_x = $ CLXVIII). Evaluating the CLXX models on the ICL tasks (Table CLXXI), A is competitive with all baselines while reducing N versus CLVIII and C. The heuristic baseline suffers training instabilities potentially impacting downstream performance.
+
+A's reduced N costs result in a $\approx$ CLXXIII training speedup over C. These time savings scale with model size and N frequency. At the CLXXIV scale with $K_x = $ CLXIII, A would save CLXXV over CLVIII and C.
+
+\textbf{Takeaway:} A enables efficient training of large-scale foundation models, especially at long training horizons, with downstream ICL performance competitive with C. We recommend setting $K_x$ for sufficient throughput based on bandwidth, then setting $K_u, K_v$ as constant multiples or based on the ⅩⅥ of their $\beta$.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ5: CXLV Outer Optimizer}
+\label{sec:rq5}
+
+We ablate the outer optimizer for A on a CLXX parameter model, comparing averaging to a CXLV optimizer with momentum of 0.9, outer CXVII of 1.0. As shown in Figure, more frequent R ($K_x = $ 64) allows A to come within CXC of the final CLXIV of C. Furthermore, using CXLV as the outer optimizer improves performance over averaging.
+
+%-----------------------------------------------------------------------------
+\subsection{RQ6: CXLVII Inner Optimizer}
+\label{sec:rq6}
+
+To assess the versatility of A beyond B-family optimizers, we integrate it with CXLVII, a single-M optimizer that uses Newton-Schulz for orthogonalization. Since CXLVII preconditions the M term directly rather than tracking second-moment estimates, the relevant R reduce to J ($K_x$) and M ($K_u$). We apply A by Ⅰ the CXLVII M buffer less frequently than the J, setting $K_u = 3K_x$ with $K_x = $ 64.
+
+A matches the CLXIV of the Local CXLVII baseline across model scales ranging from 135M to CLXX J. By U the R, A communicates more than CXC fewer bytes than the baseline, confirming that the ⅩⅥ Principle extends to optimizers beyond the B family.
+
+\textbf{Takeaway:} A is compatible with single-M optimizers such as CXLVII that rely on Newton-Schulz preconditioning. By reducing the R of the M buffer relative to J, A maintains solution quality while significantly lowering N volume, demonstrating that our approach is inner-optimizer-agnostic.
+
+%================================================================================
+% Section 6: Related Work (Templated)
+%================================================================================
+\section{Related Work}
+\label{sec:related}
+
+% Paragraph 1: Synchronous training
+In synchronous training, S exchange full W or J every CIV iteration, incurring N costs linear in model size using Ⅱ. When hardware is heterogeneous or widely Ⅶ, N significantly slows training time as S need to wait for Ⅰ to finish. Local O and FedAvg reduce N by performing $K$ local CIV steps before averaging J, decreasing N rounds by a factor of $K$. B extensions to B either keep ⅩⅪ local or reset them after each Ⅰ, both lacking robust CI.
+
+% Paragraph 2: Adam and Local Adam
+B is popular for pre-training as it scales to larger batches than O. It uses exponential moving averages of W and their squares, however, its CI is not guaranteed. Y also tracks W moments. H reduces N with local steps but requires Ⅰ ⅩⅪ, which triples the N cost relative to FedAvg/C, as Ⅰ costs scale with the number of ω.
+
+%================================================================================
+% Section 7: Conclusion (Templated)
+%================================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+A reconciles N efficiency with rigorous CI in Ⅶ B optimization. By extending theory to the independent R of B and ⅩⅪ, we empirically demonstrate CI alongside $170\times$ and $2\times$ N reductions over C and prior methods at CLXX-scale LLM training, even in environments prone to S failures.
+
+Our findings yield clear guidelines: i) frequently Ⅰ J, and ii) Ⅰ ⅩⅪ less often, proportional to their ⅩⅥ. These insights open avenues for future research, including cross-datacenter training and collaborative training. As training workloads scale, we envision A becoming the standard for efficient, resilient foundation-model training in data centers and Ⅶ environments.
+
+\end{document}
