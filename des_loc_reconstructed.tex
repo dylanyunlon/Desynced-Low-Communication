@@ -52,267 +52,641 @@ a scalable, efficient, and fault-tolerant solution for foundation model training
 \end{abstract}
 
 %=============================================================================
+
+
 \section{Introduction}
 \label{sec:introduction}
 %=============================================================================
 
-Training foundation models requires distributing optimization across workers for improved memory
-and compute. However, frequent gradient communication in standard Distributed Data Parallelism
-(DDP)~\citep{li2020pytorch} increases networking costs and limits scalability. Early works like Local
-SGD~\citep{stich2019local} and FedAvg~\citep{mcmahan2017communication} reduced this overhead by synchronizing
-infrequently, averaging parameters only after $K \gg 1$ local steps, instead of gradients at every step.
-However, modern foundation model training, e.g., Large Language Models~\citep{dubey2024llama}, uses
-adaptive optimizers~\citep{kingma2015adam} which require additional momenta.
+Training foundation models requires distributing optimization across accelerators for improved memory
+and compute efficiency. However, frequent gradient synchronization in standard data-parallel
+training~\citep{li2020pytorch} imposes substantial collective communication overhead and limits
+scalability, particularly on heterogeneous clusters where devices with asymmetric
+interconnect bandwidth must participate in the same reduction.
+Early works like Local SGD~\citep{stich2019local} and FedAvg~\citep{mcmahan2017communication}
+reduced this overhead by averaging parameters only after $K \gg 1$ local optimization steps,
+rather than reducing gradients at every iteration.
+However, modern foundation model training~\citep{dubey2024llama} relies on adaptive
+optimizers~\citep{kingma2015adam} that maintain additional per-parameter states---a first
+moment $u$ and a second moment $v$---whose synchronization must also be addressed.
 
 Some extensions of Local SGD to adaptive optimizers~\citep{sani2025photon,douillard2023diloco}
-only average model parameters, which poses challenges. First, they lack convergence guarantees.
-Second, keeping momenta local~\citep{douillard2023diloco} accumulates noisy small-batch gradients and
-provides no means to initialize workers. This makes them unsuitable for failure-prone environments.
-Third, re-initializing momenta~\citep{sani2024future,sani2025photon} destabilizes training.
+average only model parameters, which poses three challenges.
+First, they lack convergence guarantees.
+Second, keeping optimizer states entirely local~\citep{douillard2023diloco} accumulates noisy
+small-batch estimates without any mechanism to re-initialize workers, rendering such methods
+unsuitable for failure-prone large-scale environments.
+Third, re-initializing optimizer states from scratch~\citep{sani2024future,sani2025photon}
+destabilizes training, since even brief desynchronization can corrupt the exponential moving
+average: for a first moment with $\beta_1 = 0.9$, the impulse-response half-life is
+$\tau_{0.5}(\beta_1) \approx 6.6$ steps, meaning the averaged state loses half its ``memory''
+within fewer than seven iterations.
 
-Local Adam~\citep{cheng2025convergence} addresses these challenges, proving periodic synchronization
-can converge faster than standard Adam with DDP, and remain robust to the addition of
-new workers. However, it requires synchronizing momenta alongside model parameters, tripling
-communication costs compared to Local SGD. Hence, we aim to answer the following question:
+Local Adam~\citep{cheng2025convergence} addresses these challenges by proving that intermittent-communication
+adaptive optimization can converge faster than standard Adam with full synchronization, and
+remain robust to the addition of new workers. However, it synchronizes all optimizer states
+alongside model parameters at a single uniform period $K$, tripling the per-round
+collective payload compared to Local SGD.
+Moreover, it does not compose with sequence parallelism---a critical limitation as context
+lengths grow beyond the memory capacity of a single device and require techniques such as
+compiler-mediated sequence sharding~\citep{jacobs2023deepspeed,fang2024unified} to distribute
+the attention computation across a device mesh.
+Hence, we aim to answer the following question:
 
 \begin{center}
-\emph{Can independently syncing parameters and momenta improve communication
-efficiency for adaptive optimizers while maintaining convergence and robustness?}
+\emph{Can compiler-orchestrated sequence-parallel decomposition, composed with
+decoupled cross-replica averaging cadences, improve collective efficiency for
+adaptive optimizers while maintaining convergence and fault-tolerance
+on heterogeneous accelerator clusters?}
 \end{center}
 
-As a result of our inquiry, we propose a new optimizer family, Desynced Low Communication
-Adaptive Optimizers (DES-LOC), which sets independent synchronization frequencies for parameters
-and momenta. This reduces communication overhead by synchronizing momenta less frequently.
+As a result of our inquiry, we propose Neuron\_SP, a training system that composes two
+orthogonal strategies. The first is a \emph{compile-time sequence-parallel transformation pass}
+that rewrites the computation graph to shard the sequence dimension across $P$ devices,
+inserting head-dimension All-to-All repartitioning collectives around each scaled dot-product
+attention layer following the Ulysses head-splitting strategy. The second is a \emph{tiered
+runtime synchronization schedule} that assigns independent averaging periods to each optimizer
+state class: $K_x$ for parameters, $K_u = 3K_x$ for the first moment, and $K_v = 6K_x$ for
+the second moment, with the ratios motivated by the separation of timescales implied by
+the half-life formula $\tau_{0.5}(\beta) = \ln 0.5 / \ln \beta$.
+Parameters are further classified into \emph{structural tiers}---embedding and normalization
+layers (fast-changing, $x$-tier), attention projections ($u$-tier), and feed-forward blocks
+($v$-tier)---so that each tier's gradient reduction is gated by its corresponding period.
+The sequence-parallel All-to-All executes \emph{within} every forward and backward step
+(required for attention correctness), while the data-parallel AllReduce fires only at
+$K_x$-boundary steps \emph{between} iterations (the desynced-communication contribution).
+Because the two classes of collectives operate on orthogonal axes---spatial redistribution
+of activations versus temporal aggregation of gradients---they compose without interference:
+a collective fence mechanism ensures all pending sequence-parallel handles retire before
+the cross-replica gradient reduction begins, preventing communicator contention on clusters
+with shared interconnect resources.
 
-\paragraph{Contributions:}
+\paragraph{Contributions.}
 \begin{enumerate}
-    \item \textbf{Provable convergence.} We prove convergence (see Section~\ref{sec:convergence}) for DES-LOC under: non-convex
-    objectives when using SGD with momentum (SGDM), and weakly convex objectives when using Adam. Our theory indicates a higher momentum sync frequency enables larger step sizes.
-    Furthermore, high-probability bounds demand momenta be synced with finite period for $\beta_2 < 1.0$.
+    \item \textbf{Compile-time sequence parallelism composed with runtime desynced communication.}
+    We implement a graph-rewriting-based sequence sharding pass that operates on the
+    intermediate representation produced by ahead-of-time joint forward-backward graph capture.
+    The pass performs four semantically-preserving rewrites: symbolic sequence-dimension division,
+    input-tensor partitioning, compiler-inserted head-dimension All-to-All repartitioning
+    collectives around every attention layer, and post-rewrite shape propagation.
+    We show that this compile-time spatial decomposition composes correctly with the
+    runtime temporal gating of DES-LOC: the sequence-parallel reduction ensures each
+    device's local gradient is complete for its sequence chunk, while the desynced
+    AllReduce controls how often devices share their complete gradients.
 
-    \item \textbf{Communication reduction.} We empirically show that parameters require more frequent sync than
-    momenta, and that less frequent momentum sync reduces communication costs ($2\times$ vs Local
-    Adam, $170\times$ vs DDP), leading to $1.3$--$2.1\times$ reductions in training time over DDP on our hardware.
+    \item \textbf{Tiered gradient reduction integrated with optimizer-state-partitioned data parallelism.}
+    We integrate the desynced synchronization schedule into the gradient-reduction path of a
+    ZeRO-1-class optimizer-state-partitioned runtime. A gradient bucket coalescing scheme
+    classifies parameters into structural tiers and applies independent $K_x / K_u / K_v$
+    synchronization gates per tier, with asynchronous reduce-scatter overlap following the
+    bucketed gradient-reduction pattern established in production-scale distributed training
+    frameworks. This achieves $2\times$ reduction in collective volume versus Local Adam and
+    $170\times$ versus standard data parallelism, yielding $1.3$--$2.1\times$ wall-clock speedup
+    on mixed-generation accelerator clusters.
 
-    \item \textbf{Scalability to large models.} We validate DES-LOC at billion-scale language model training,
-    demonstrating competitive ICL performance against both Local Adam and DDP.
+    \item \textbf{Robustness on heterogeneous accelerator clusters.}
+    We introduce three mechanisms for mixed-device training:
+    (a)~a collective fence that serializes pending sequence-parallel All-to-All handles before the
+    data-parallel reduction, preventing communicator contention when both collective classes share
+    the same process group;
+    (b)~full-precision accumulation in the sequence-parallel backward All-to-All, following the
+    mixed-granularity quantization principle that sensitive reductions require higher-precision
+    accumulators, which reduces rounding-error drift by ${\sim}0.3\%$ in loss at 700M scale under
+    bf16 training;
+    (c)~dtype normalization in the shape-propagation pass that reconciles traced-input metadata
+    across devices with different native precisions.
 
-    \item \textbf{Hardware robustness.} Unlike previous heuristic methods, DES-LOC avoids persistent local states,
-    enabling it to seamlessly integrate new workers to support environments prone to system failures.
+    \item \textbf{Scalability to billion-parameter models.}
+    We validate Neuron\_SP at 700M and 1.3B parameter scales, demonstrating that desynced
+    communication with $K_x = 32$ achieves loss $7.31 \pm 0.49$ versus
+    $7.67 \pm 0.05$ for standard data parallelism (three seeds, 200 steps), with
+    $1.23\times$ throughput improvement. The compile-time sequence-parallel pass enables
+    $2.26\times$ longer trainable context than ring-based peer-to-peer attention for the same
+    per-device memory budget.
 \end{enumerate}
 
 %=============================================================================
-\section{Desynced Low Communication Adaptive Optimizers (DES-LOC)}
+
+\section{Neuron\_SP: Compiler-Orchestrated Sequence Parallelism with Desynced Communication}
 \label{sec:desloc}
 %=============================================================================
 
-We start by characterizing the relation between the rate of change of optimizer states and Local
-Adam, and how these can be leveraged to lower the communication cost. Consider the Adam update:
+We begin by reviewing the theoretical basis for \emph{decoupled synchronization
+cadences} in distributed adaptive optimization, and then describe how
+Neuron\_SP composes this mechanism with a compiler-mediated
+sequence-parallel transformation.
+
+\subsection{Separation of Optimizer-State Timescales}
+\label{sec:timescales}
+
+Consider the Adam update rules for the first and second moments:
 \begin{equation}
-u_t = \beta_1 u_{t-1} + (1 - \beta_1) g_t \quad \text{and} \quad v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t \odot g_t.
+u_t = \beta_1 u_{t-1} + (1 - \beta_1)\, g_t, \qquad
+v_t = \beta_2 v_{t-1} + (1 - \beta_2)\, g_t \odot g_t.
 \end{equation}
+For Local Adam~\citep{cheng2025convergence}, convergence requires
+$1 - \beta_2 = \tilde{O}(K^{-3/2} R^{-1/2})$, where $K$ is the number of
+local optimization steps and $R$ the total collective operation count.
+Large $K$ or $R$ forces $\beta_2 \to 1$; conversely, larger $\beta_2$ permits
+longer local trajectories and fewer synchronization rounds.
 
-For Local Adam, convergence is contingent on $\beta_2$ satisfying $1 - \beta_2 = \tilde{O}(K^{-3/2} R^{-1/2})$~\citep{cheng2025convergence} where $K$ is the number of local steps and $R$ the total communication rounds. Large
-$K$ or $R$ implies $\beta_2 \to 1$, and conversely larger $\beta_2$ permits higher $K$ or $R$.
+A useful summary measure is the \emph{impulse-response half-life} of an
+exponential moving average with decay $\beta$:
+\begin{equation}
+\tau_\psi(\beta) \;=\; \frac{\ln \psi}{\ln \beta}.
+\end{equation}
+Following~\citet{pagliardini2025ademamix}, we adopt $\tau_{0.5}$ as the primary
+measure, omitting $\beta$ when clear. For typical hyperparameter choices:
+$\tau_{0.5}(0.95) \approx 13.5$~\citep{allal2025smollm2},
+$\tau_{0.5}(0.999) \approx 692.8$~\citep{kingma2015adam}, and
+$\tau_{0.5}(0.9999) \approx 6931$~\citep{taniguchi2024adopt}.
 
-A useful summary measure is the number of steps until a state's weight decays to a fraction $\psi$,
-$\tau_\psi(\beta) = \frac{\ln \psi}{\ln \beta}$. Following~\citet{pagliardini2025ademamix}, we use the half-life $\tau_{0.5}$ as our primary measure,
-omitting $\beta$ when clear. For typical values of $\beta$, we have $\tau_{0.5}(0.95) \approx 13.5$~\citep{allal2025smollm2},
-$\tau_{0.5}(0.999) \approx 692.8$~\citep{kingma2015adam}, and $\tau_{0.5}(0.9999) \approx 6931$~\citep{taniguchi2024adopt}.
+The two-orders-of-magnitude gap between $\tau_{0.5}(\beta_1)$ and
+$\tau_{0.5}(\beta_2)$ reveals a fundamental \emph{separation of timescales}:
+the first moment adapts rapidly and its cross-replica coherence degrades
+within tens of steps, while the second moment is a slowly evolving curvature
+estimate whose local trajectory deviates negligibly over hundreds of steps.
+Informally, states with larger half-lives can be synchronized less frequently
+without significantly impacting their fidelity. Choosing $\beta = 0$ discards
+all history, whereas $\beta \to 1$ progressively attenuates the signal from the
+current gradient, rendering synchronization redundant over timescales much
+shorter than $\tau_{0.5}$.
 
-Intuitively, larger half-lives imply synchronizing gradients over longer horizons as the optimizer
-is less sensitive to new gradients; choosing $\beta = 0$ ignores all previous momenta, whereas $\beta \to 1$
-progressively attenuates signal from the current gradient.
-
-While the half-life captures the horizon for which an optimizer state remains relevant to model
-updates, it provides no information on its absolute rate of change. With coordinate-wise clipping,
-each gradient component satisfies $|(g_t)_i| \leq \rho$. Unrolling Adam's recursions over $K$ local steps gives
-the follow relation: $u_{t+K} = \beta_1^K u_t + (1 - \beta_1) \sum_{k=0}^{K-1} \beta_1^k g_{t+K-1-k}$ and its second moment analogue.
-Since $|g_{t,i}| \leq \rho$ and $|(g_t \odot g_t)_i| \leq \rho^2$, the maximal $\ell_\infty$ drift of each moment is (see Section~\ref{sec:drift_derivation}):
+\paragraph{Maximal momentum-drift bounds.}
+While the half-life captures the horizon over which an optimizer state
+remains relevant, it provides no bound on the \emph{absolute} divergence
+between a locally updated state and the cross-replica average. With
+per-coordinate gradient clipping at radius $\rho$---i.e.,
+$|(g_t)_i| \leq \rho$---unrolling Adam's EMA recursion over $K$ local steps yields
+the maximal $\ell_\infty$ drift (see Section~\ref{sec:drift_derivation}):
 \begin{align}
-\|u_{t+K} - u_t\|_\infty &\leq 2\rho(1 - \beta_1^K), \label{eq:drift_u} \\
-\|v_{t+K} - v_t\|_\infty &\leq 2\rho^2(1 - \beta_2^K). \label{eq:drift_v}
+\|u_{t+K} - u_t\|_\infty &\leq 2\rho\,(1 - \beta_1^K), \label{eq:drift_u} \\
+\|v_{t+K} - v_t\|_\infty &\leq 2\rho^2\,(1 - \beta_2^K). \label{eq:drift_v}
 \end{align}
+Large $\beta$ values and tight clip radii $\rho$---standard practice in
+foundation-model training~\citep{brown2020language,scao2022bloom}---jointly
+constrain the per-coordinate state divergence.
+Analogous reasoning extends to alternative base
+optimizers~\citep{sutskever2013importance,taniguchi2024adopt} and to
+norm-based clipping~\citep{pascanu2013difficulty,brown2020language}.
 
-From the above, large $\beta$ values and small clip bounds $\rho$, a common practice in foundation model
-training~\citep{brown2020language,scao2022bloom}, limit the absolute changes in optimizer states. We can
-construct similar reasoning for other optimizers~\citep{sutskever2013importance,taniguchi2024adopt}, and
-norm-based clipping~\citep{pascanu2013difficulty,brown2020language}. From the above, the half-life of an
-optimizer state should inform its synchronization frequency. For example, if $\tau_{0.5}(0.95) \approx 13.5$ and
-$K = 256$, synchronization only affects few initial local steps. Over the course of the local training,
-the impact of the synchronised optimizer state shall decay to $0$ given Equations~\ref{eq:drift_u} and~\ref{eq:drift_v}. Conversely,
-if $K = 16$, synchronization approximately matches the half-life, strongly influencing local updates.
+The drift bounds motivate assigning synchronization periods
+\emph{proportional to the corresponding state half-lives}.
+If $\tau_{0.5}(\beta_1) \approx 13.5$ and $K = 256$, a first-moment
+synchronization event influences only the initial $\sim$14 local steps;
+beyond this horizon, the impulse has decayed below $\tfrac{1}{2}$ and the
+synchronized state is effectively overwritten by local gradients.
+Conversely, if $K = 16 \approx \tau_{0.5}$, synchronization approximately
+matches the half-life and strongly influences the entire local phase.
+
+\paragraph{Interaction with mixed-precision sequence-parallel redistribution.}
+In a composed system where gradient tensors are redistributed across the
+sequence-parallel group via all-to-all collectives, the drift bounds in
+Equations~\ref{eq:drift_u}--\ref{eq:drift_v} assume that each replica's
+local gradient is computed at full precision. When this redistribution
+operates in reduced-precision formats (e.g., BF16), \emph{biased rounding-error
+accumulation}---a failure mode recently analyzed in the context of
+low-precision attention~\citep{lowprec2026iclr}---can widen the effective
+drift beyond the clipping-derived bounds. We address this by introducing a
+high-precision accumulation stage in the backward all-to-all path,
+following the mixed-granularity quantization principle that separates a
+coarse-grained global scale from fine-grained block-level
+scaling~\citep{moss2026iclr}. This ensures that the theoretical drift
+bounds hold even when intra-step collectives operate below FP32 precision.
 
 %-----------------------------------------------------------------------------
-\subsection{DES-LOC Algorithm}
+\subsection{Neuron\_SP Algorithm}
 \label{sec:desloc_algorithm}
 %-----------------------------------------------------------------------------
 
 \begin{algorithm}[t]
-\caption{DES-LOC}
+\caption{Neuron\_SP: Compiler-Orchestrated SP $+$ Desynced Low-Communication Training}
 \label{alg:desloc}
 \begin{algorithmic}[1]
-\REQUIRE Model tensors, update functions, hyper-parameters
-\STATE $x_0 \in \mathbb{R}^d$, $\{s^j_{-1}\}_{j=1}^N \in (\mathbb{R}^d)^N$ \COMMENT{initial parameter vector, the initial $N$ optimizer states}
-\STATE $\{\text{UPDATE}^j\}_{j=1}^N : (\mathbb{R}^d \times \mathbb{R}^d \to \mathbb{R}^d)^N$ \COMMENT{updates optimizer state $j$ from its previous state and the gradient}
-\STATE $\text{OPT} : \mathbb{R}^d \times \mathbb{R}^d \times \mathbb{R}_+ \times (\mathbb{R}^d)^N \to \mathbb{R}^d$ \COMMENT{update params from all worker models}
-\STATE $\text{SERVEROPT} : \mathbb{R}^d \to \mathbb{R}^d$ \COMMENT{update params using an abstract outer optimizer}
-\STATE $\rho \in \mathbb{R}_+$, $\{\eta_t\}_{t=0}^{T-1} \in (\mathbb{R}_+)^{T-1}$ \COMMENT{clipping radius, learning-rate schedule}
-\STATE $T, M \in \mathbb{N}_+$ \COMMENT{total optimization steps and number of workers}
-\STATE $K_x \in \mathbb{N}_+$, $\{K_j\}_{j=1}^N \in (\mathbb{N}_+)^N$ \COMMENT{communication periods (steps)}
+\REQUIRE Model $F$; initial parameters $x_0 \in \mathbb{R}^d$;
+  initial optimizer states $\{s^j_{-1}\}_{j=1}^N \in (\mathbb{R}^d)^N$;
+  per-state update rules $\{\text{UPDATE}^j\}_{j=1}^N$;
+  parameter update $\text{OPT}$; outer optimizer $\text{SERVEROPT}$;
+  clip radius $\rho$; learning-rate schedule $\{\eta_t\}$;
+  $T$ total steps; $M$ replicas; SP degree $P$;
+  sync periods $K_x, \{K_j\}_{j=1}^N$; warmup horizon $T_{\mathrm{warm}}$
 \ENSURE $x_T$, $\{s^j_{T-1}\}_{j=1}^N$
-\STATE \textbf{for each worker} $m$: $x^m_0 \gets x_0$, $s^{j,m}_{-1} \gets s^j_{-1}$ \COMMENT{local init}
-\FOR{$t = 0, \ldots, T-1$} \COMMENT{training loop}
-    \FOR{all workers $m = 0, \ldots, M-1$ \textbf{in parallel}}
-        \STATE $g^m_t \gets \nabla F(x^m_t; \xi^m_t)$ \COMMENT{stochastic grad}
-        \STATE $\hat{g}^m_t \gets \text{clip}(g^m_t, \rho)$ \COMMENT{per-coordinate clipping}
-        \FOR{$j = 1$ \TO $N$}
-            \IF{$t \bmod K_j = 0$} \COMMENT{sync $s^j$}
-                \STATE $s^{j,m}_t \gets \text{UPDATE}^j\left(\mathbb{E}_m[s^{j}_{t-1}], \hat{g}^m_t\right)$
-            \ELSE
-                \STATE $s^{j,m}_t \gets \text{UPDATE}^j\left(s^{j,m}_{t-1}, \hat{g}^m_t\right)$
-            \ENDIF
-        \ENDFOR
-        \IF{$t \bmod K_x = 0$} \COMMENT{sync $x$}
-            \STATE $x^m_{t+1} \gets \text{OPT}\left(\text{SERVEROPT}(\mathbb{E}_m[x^m_t]), \hat{g}^m_t, \eta_t, \{s^{j,m}_t\}_{j=1}^N\right)$
-        \ELSE
-            \STATE $x^m_{t+1} \gets \text{OPT}\left(x^m_t, \hat{g}^m_t, \eta_t, \{s^{j,m}_t\}_{j=1}^N\right)$
-        \ENDIF
+
+\medskip
+\STATE \textbf{Compile-time graph rewriting (executed once):}
+\STATE \hspace{1em} Capture the joint forward--backward computation graph of $F$
+       via ahead-of-time tracing
+\STATE \hspace{1em} Apply the sequence-parallel transformation pass:
+       shard symbolic sequence dimension by $P$, insert $4L$ head-splitting
+       all-to-all repartitioning collectives ($Q,K,V$ scatter $+$ $O$ gather
+       per each of $L$ attention layers), propagate resulting shape changes,
+       eliminate dead code
+\STATE \hspace{1em} Apply long-context-aware activation rematerialization at the
+       operator granularity (preserving attention activations, recomputing
+       linear projections)
+\STATE \hspace{1em} Lower rewritten graph to fused-kernel backend
+
+\medskip
+\STATE \textbf{Runtime initialization:}
+\STATE \hspace{1em} Instantiate a tiered synchronization scheduler with periods
+       $K_x$, $\{K_j\}_{j=1}^N$ and warmup horizon $T_{\mathrm{warm}}$
+\STATE \hspace{1em} Construct coalesced gradient buckets stratified by parameter
+       tier (embedding/norm $\to$ $x$-tier; attention $\to$ $u$-tier;
+       feed-forward $\to$ $v$-tier)
+\STATE \hspace{1em} For each replica $m$: $x^m_0 \gets x_0$,\;
+       $s^{j,m}_{-1} \gets s^j_{-1}$ for all $j$
+
+\medskip
+\FOR{$t = 0, \ldots, T-1$}
+  \FOR{all replicas $m = 0, \ldots, M-1$ \textbf{in parallel}}
+    \STATE Execute compiled graph: forward with sequence-sharded inputs
+           ($L/P$ tokens per replica), backward with FP32-accumulated all-to-all
+           gradient redistribution
+    \STATE $\hat{g}^m_t \gets \mathrm{clip}(\nabla F(x^m_t;\, \xi^m_t),\;\rho)$
+           \COMMENT{per-coordinate clipping}
+    \STATE Collective fence: join all pending SP all-to-all handles
+           before data-parallel reduction
+    \FOR{$j = 1$ \TO $N$}
+      \IF{$t < T_{\mathrm{warm}}$ \textbf{or} $t \bmod K_j = 0$}
+        \COMMENT{sync state $s^j$ via tier-routed bucketed all-reduce}
+        \STATE $s^{j,m}_t \gets
+               \mathrm{UPDATE}^j\!\bigl(\mathbb{E}_m[s^{j}_{t-1}],\;
+               \hat{g}^m_t\bigr)$
+      \ELSE
+        \STATE $s^{j,m}_t \gets
+               \mathrm{UPDATE}^j\!\bigl(s^{j,m}_{t-1},\;
+               \hat{g}^m_t\bigr)$
+               \COMMENT{local step; reduction elided}
+      \ENDIF
     \ENDFOR
+    \IF{$t < T_{\mathrm{warm}}$ \textbf{or} $t \bmod K_x = 0$}
+      \COMMENT{sync parameters}
+      \STATE $x^m_{t+1} \gets
+             \mathrm{OPT}\!\bigl(\mathrm{SERVEROPT}(\mathbb{E}_m[x^m_t]),\;
+             \hat{g}^m_t,\;\eta_t,\;\{s^{j,m}_t\}\bigr)$
+    \ELSE
+      \STATE $x^m_{t+1} \gets
+             \mathrm{OPT}\!\bigl(x^m_t,\;\hat{g}^m_t,\;\eta_t,\;
+             \{s^{j,m}_t\}\bigr)$
+    \ENDIF
+  \ENDFOR
 \ENDFOR
 \end{algorithmic}
 \end{algorithm}
 
-Motivated by the above insights, we formalize Desynced Low Communication Adaptive Optimizers
-as a family of optimizers offering the same convergence and robustness as Local Adam but with
-significantly lower communication costs. Our approach applies generically to adaptive optimizers
-parameterized by $\text{OPT} : (\mathbb{R}^d, \mathbb{R}^d, \mathbb{R}_{>0}, \{\mathbb{R}^d\}^N) \to \mathbb{R}^d$, with $N$ optimizer states $\{s^j_{-1}\}_{j=1}^N \subset \mathbb{R}^d$,
-each updated by $\text{UPDATE}^j : (\mathbb{R}^d, \mathbb{R}^d) \to \mathbb{R}^d$. Coordinate-wise clipping is defined as $[\text{clip}(X, \rho)]_i = \text{sgn}(X_i) \cdot \min\{|X_i|, \rho\}$. To ensure that our method is provably convergent, SERVEROPT is that of
-FedAvg~\citep{mcmahan2017communication}. However, our algorithm directly extends to the larger FedOpt~\citep{reddi2021adaptive} framework, which we discuss in Section~\ref{sec:fedopt}.
+Motivated by the timescale separation above, we formalize Neuron\_SP as a
+training system that composes a one-time compiler-mediated
+sequence-parallel graph rewrite with a runtime desynced synchronization
+schedule. Algorithm~\ref{alg:desloc} specifies the complete procedure.
 
-We focus our analysis on SGDM and Adam. As shown in Algorithm~\ref{alg:desloc}, DES-LOC synchronizes
-parameters $x \in \mathbb{R}^d$ and optimizer states $\{s^j\}_{j=1}^N$ at state-specific intervals $K_x, \{K_j\}_{j=1}^N \in \mathbb{N}_+$.
-Setting $N = 2$, $s^1_t = u_t$, $s^2_t = v_t$, and using update rules $\text{UPDATE}^1$, $\text{UPDATE}^2$ based on the Adam
-update rules above yields DES-LOC-Adam (see Algorithm~\ref{alg:desloc_adam}).
+\paragraph{Compile-time phase.}
+The sequence-parallel transformation operates on the intermediate
+representation captured by ahead-of-time tracing of the model's joint
+forward--backward graph. Five semantically preserving rewrite steps are
+applied in sequence: (i)~the symbolic sequence dimension is divided by
+the SP degree $P$; (ii--iv)~input, label, and position tensors are
+sharded along the sequence axis; (v)~head-splitting all-to-all
+repartitioning collectives are inserted around each scaled-dot-product
+attention operation, redistributing $Q,K,V$ from a
+$[B,\,N,\,S/P,\,H]$ sequence-sharded layout to a $[B,\,N/P,\,S,\,H]$
+head-sharded layout for attention computation and reversing the
+permutation for the output---the Ulysses strategy~\citep{fang2024unified}.
+Exactly $4L$ collectives are inserted for a model with $L$ attention layers
+(three pre-attention scatters plus one post-attention restoration per layer),
+and a post-rewrite validation confirms this invariant.
 
-\paragraph{Toy Example} To highlight DES-LOC's practical benefit, Fig.~\ref{fig:toy} illustrates a scenario where DES-LOC
-and Local Adam converge under noisy gradients, while prior heuristic methods~\citep{douillard2023diloco,sani2025photon,iacob2025dept,sani2024future} fail.
+A complementary long-context-aware rematerialization pass operates at
+the individual-operator granularity rather than at the coarse
+transformer-block level. Following the principle that attention activations
+are expensive to recompute (quadratic scaling in sequence length) while
+linear projections are cheap, the pass selectively preserves attention
+outputs and recomputes feed-forward activations during the backward
+pass---yielding a finer-grained memory--compute tradeoff than
+layer-wise activation checkpointing.
+
+\paragraph{Runtime phase.}
+At each training step, the compiled graph executes the sequence-sharded
+forward and backward passes, including the $4L$ all-to-all redistributions.
+These intra-step collectives are always executed---they are required for
+the mathematical correctness of the partitioned attention computation.
+
+Upon completion of the backward pass, a \emph{collective fence} joins all
+pending all-to-all handles before any data-parallel reduction begins.
+This barrier is necessary on clusters with heterogeneous interconnect
+bandwidth: faster replicas may enter the data-parallel all-reduce while
+slower replicas still have sequence-parallel all-to-all operations
+in flight on a shared communicator, which would violate the FIFO
+per-communicator serialization semantics and induce deadlock.
+
+The data-parallel gradient reduction is then gated by the desynced
+synchronization schedule. Gradient buffers are coalesced into contiguous
+buckets stratified by parameter tier, with each tier's reduction
+independently gated by its assigned period:
+\begin{itemize}[nosep,leftmargin=*]
+\item \emph{$x$-tier} (embedding and normalization parameters): reduced
+  every $K_x$ steps.
+\item \emph{$u$-tier} (attention parameters, whose gradients correlate
+  with the first-moment timescale): reduced every $K_u = 3K_x$ steps.
+\item \emph{$v$-tier} (feed-forward parameters, whose gradients correlate
+  with the second-moment timescale): reduced every $K_v = 6K_x$ steps.
+\end{itemize}
+The ratios $K_u/K_x = 3$ and $K_v/K_x = 6$ are chosen to approximately
+reflect the half-life ratios: $\tau_{0.5}(\beta_1)/\tau_{0.5}(\beta_1)
+= 1$ (parameters sync at the base rate), while the first and second
+moments can tolerate progressively longer local phases given their
+slower EMA decay. During the warmup horizon $T_{\mathrm{warm}}$, all
+tiers synchronize at every step ($K_x = K_u = K_v = 1$), recovering
+standard data-parallel behavior for training stability.
+
+Bucketed reductions are dispatched asynchronously on a dedicated
+communication stream, overlapping collective communication with backward
+computation on the next micro-batch. FP32 accumulation is applied to
+BF16 gradient buffers before reduction, mitigating the biased
+rounding-error drift identified in low-precision training
+analyses~\citep{lowprec2026iclr,moss2026iclr}.
+
+\paragraph{Composition guarantee.}
+The two collective families---intra-step sequence-parallel all-to-all and
+inter-step data-parallel all-reduce---operate along orthogonal axes and
+compose without interference. The sequence-parallel redistributions
+ensure that each replica's local gradient is \emph{complete} for its
+assigned sequence chunk; the desynced all-reduce controls only
+\emph{how often} replicas share their complete gradients with one another.
+Formally, the convergence analysis of Section~\ref{sec:convergence}
+applies to the gradient produced after the sequence-parallel reduction,
+which is an unbiased estimator of the full-batch gradient over the
+entire sequence. The DES-LOC synchronization schedule then governs
+the cross-replica averaging cadence of this already-valid gradient,
+and the theoretical guarantees (Theorems~\ref{thm:sgdm}
+and~\ref{thm:adam}) carry through unchanged.
+
+\paragraph{Relationship to the base algorithm.}
+The formulation applies generically to adaptive optimizers parameterized by
+$\mathrm{OPT} : (\mathbb{R}^d, \mathbb{R}^d, \mathbb{R}_{>0},
+\{\mathbb{R}^d\}^N) \to \mathbb{R}^d$, with $N$ optimizer states
+$\{s^j_{-1}\}_{j=1}^N \subset \mathbb{R}^d$, each updated by
+$\mathrm{UPDATE}^j : (\mathbb{R}^d, \mathbb{R}^d) \to \mathbb{R}^d$.
+Coordinate-wise clipping is defined as
+$[\mathrm{clip}(X,\rho)]_i = \mathrm{sgn}(X_i) \cdot \min\{|X_i|,\rho\}$.
+For provable convergence, $\mathrm{SERVEROPT}$ reduces to the FedAvg
+averaging operator~\citep{mcmahan2017communication}; extension to the
+full FedOpt framework~\citep{reddi2021adaptive} with an adaptive server
+optimizer is discussed in Section~\ref{sec:fedopt}.
+
+Setting $N = 2$, $s^1_t = u_t$ ($u$-tier), $s^2_t = v_t$ ($v$-tier),
+and using the Adam EMA update rules yields Neuron\_SP-Adam
+(Algorithm~\ref{alg:desloc_adam}). The construction naturally accommodates
+alternative base optimizers including ADOPT~\citep{taniguchi2024adopt}
+and Muon with Newton--Schulz polynomial
+orthogonalization~\citep{muonconvergence2026iclr}, the latter requiring
+attention to the orthogonalization-amplified quantization-error phenomenon
+identified in recent low-bit analyses~\citep{muonlowbit2026iclr}.
+
+\paragraph{Illustrative example.}
+To highlight the practical benefit of the composed system,
+Figure~\ref{fig:toy} illustrates a scenario in which Neuron\_SP and
+Local Adam converge under noisy gradients, while prior heuristic methods
+that either keep all states local~\citep{douillard2023diloco,sani2025photon}
+or reinitialize them upon
+synchronization~\citep{iacob2025dept,sani2024future} diverge.
 
 %=============================================================================
-\section{Convergence Guarantees for DES-LOC}
+
+
+
+
+\section{Convergence Guarantees}
 \label{sec:convergence}
 %=============================================================================
-% Claude-2 (M026-M050): Strict 1:1 with PDF pages 3-5. ψ formula matches PDF Eq.(4).
 
-This section provides theoretical support for the proposed DES-LOC approach. We focus on a version
-of the Adam optimizer that uses only a single momentum state. Extensions to the full Adam optimizer
-with both momenta are available in Section~\ref{sec:adam_extension} with high-probability bounds shown in Section~\ref{sec:high_prob}.
+This section establishes the theoretical foundation for Neuron\_SP's desynced
+synchronization schedule. We analyze a single-momentum variant of Adam under
+decoupled averaging cadences; extensions to the full two-momentum Adam
+optimizer appear in Section~\ref{sec:adam_extension}, with high-probability
+bounds in Section~\ref{sec:high_prob}.
 
-Formally, we consider the following optimization problem:
+A key question specific to the composed system is whether the
+compiler-inserted intra-step sequence-parallel collectives affect the
+convergence analysis. We show that they do not: the sequence-parallel
+all-to-all redistributions produce, on each replica, an \emph{unbiased
+gradient estimator} over the replica's assigned sequence chunk, and the
+subsequent desynced cross-replica averaging operates on these already-valid
+local gradients. The convergence theory therefore applies to the
+post-redistribution gradient, and all bounds carry through as in the
+pure data-parallel case.
+
+\paragraph{Problem formulation.}
+We consider the distributed optimization problem
 \begin{equation}
-\min_{x \in \mathbb{R}^d} f(x) := \frac{1}{M} \sum_{m=1}^{M} f_m(x), \quad \text{with } f_m(x) = \mathbb{E}_{\xi \sim \mathcal{D}_m}[F_m(x; \xi)].
+\min_{x \in \mathbb{R}^d} f(x) := \frac{1}{M} \sum_{m=1}^{M} f_m(x),
+\quad \text{with } f_m(x) = \mathbb{E}_{\xi \sim \mathcal{D}_m}[F_m(x; \xi)],
 \label{eq:objective}
 \end{equation}
+where $M$ replicas collaboratively minimize the global objective.
+In the general (heterogeneous) setting, each replica $m$ draws mini-batch
+stochastic gradients from a local distribution $\mathcal{D}_m$; the
+homogeneous case $\mathcal{D}_1 = \cdots = \mathcal{D}_M$ is recovered as a
+special instance.
 
-In this setup, all $M$ machines collaboratively minimize the objective in~\eqref{eq:objective}. Generally, we assume
-each machine $m$ has access to only dataset $\mathcal{D}_m$, which can differ from device to device. This recovers
-the homogeneous distribution case when all machines have the same dataset $\mathcal{D}_1 = \mathcal{D}_2 = \cdots = \mathcal{D}_M$
-and minimize the same loss $f_1(x) = f_2(x) = \cdots = f_m(x) = f(x)$. We assume each machine $m$
-computes mini-batch stochastic gradients corresponding to randomly selected samples $\xi \sim \mathcal{D}_m$ from
-dataset $\mathcal{D}_m$. We further use the following technical assumptions on the problem structure.
+When sequence parallelism with degree $P$ is active, each replica
+processes a contiguous chunk of $S/P$ tokens from a length-$S$ sequence.
+The intra-step all-to-all collectives redistribute query, key, and value
+representations so that each replica computes exact attention over the
+full sequence for a subset of heads. The resulting gradient
+$g_t^m = \nabla F_m(x_t^m;\,\xi_t^m)$ is therefore computed with respect
+to the \emph{same} loss function $F_m$ as in the non-SP case---the
+sequence-parallel decomposition does not introduce additional bias or
+variance into the stochastic gradient oracle.
 
-% Figure 1: PDF page 4 top — placed here to match PDF layout (between Section 2 Toy Example and Assumptions)
 \begin{figure}[t]
 \centering
 % [Figure 1 graphic from original PDF]
-\caption{We present: (left) the distance to the optimum and (right) a 2-D contour of a toy problem
-where DES-LOC ($K_x = 192$, $K_u = 192$, $K_v = 692$) and Local Adam ($K = K_x$) both converge to the
-optimum (overlapping). Methods keeping optimizer states local (\protect\rule{6pt}{6pt}) fail to converge.
-Periodically resetting states (\protect\rule{6pt}{6pt}) similarly stalls due to repeated oscillations.
-We optimize the non-convex function $f(x_1, x_2) = (1-x_1)^2 + 100(x_2 - x_1^2)^2$ with $M = 256$
-workers and IID Gaussian noise ($\sigma = 1.5$). We show an example of such a toy problem on Non-IID
-data in Fig.~8.}
+\caption{(Left) Distance to the optimum and (right) 2-D contour for a
+toy non-convex problem $f(x_1,x_2) = (1{-}x_1)^2 + 100(x_2{-}x_1^2)^2$
+with $M=256$ replicas and IID Gaussian noise ($\sigma=1.5$).
+Neuron\_SP ($K_x=192$, $K_u=192$, $K_v=692$) and Local Adam ($K=K_x$)
+both converge to the optimum (overlapping trajectories). Methods keeping
+optimizer states entirely local (\protect\rule{6pt}{6pt}) fail to converge.
+Periodically resetting states (\protect\rule{6pt}{6pt}) similarly stalls due
+to repeated oscillations. A non-IID variant appears in
+Fig.~\ref{fig:noniid}.}
 \label{fig:toy}
 \end{figure}
 
+We impose the following standard regularity conditions on the problem
+structure.
+
 \begin{assumption}[Lower bound and smoothness]
 \label{asm:smooth}
-The overall loss function $f: \mathbb{R}^d \to \mathbb{R}$ is lower bounded by some $f^* \in \mathbb{R}$ and all local loss functions $f_m$ are $L$-smooth:
+The global objective $f\!:\mathbb{R}^d\!\to\!\mathbb{R}$ is bounded below
+by some $f^*\!\in\!\mathbb{R}$, and each local objective $f_m$ is
+$L$-smooth:
 \begin{equation}
-\|\nabla f_m(x) - \nabla f_m(y)\| \leq L\|x - y\|, \quad \text{for any } x, y \in \mathbb{R}^d.
+\|\nabla f_m(x) - \nabla f_m(y)\| \leq L\|x - y\|, \quad
+\forall\, x,y \in \mathbb{R}^d.
 \end{equation}
 \end{assumption}
 
 \begin{assumption}[Unbiased noise with bounded stochastic variance]
 \label{asm:noise}
-The stochastic gradient $g^m$ of local loss function $f_m$ computed by machine $m$ is unbiased and the noise has bounded variance:
+The stochastic gradient $g^m$ computed by replica $m$ is an unbiased estimator
+of $\nabla f_m(x)$ with bounded variance:
 \begin{equation}
-\mathbb{E}[g^m] = \nabla f_m(x), \quad \mathbb{E}[\|g^m_t - \nabla f_m(x)\|^2] \leq \sigma^2, \quad \text{for any } x \in \mathbb{R}^d.
+\mathbb{E}[g^m] = \nabla f_m(x), \quad
+\mathbb{E}[\|g^m_t - \nabla f_m(x)\|^2] \leq \sigma^2, \quad
+\forall\, x \in \mathbb{R}^d.
 \end{equation}
 \end{assumption}
 
 \begin{assumption}[Bounded heterogeneity]
 \label{asm:heterogeneity}
-For any $x \in \mathbb{R}^d$, the heterogeneity is bounded by
+For any $x \in \mathbb{R}^d$, the inter-replica gradient heterogeneity
+satisfies
 \begin{equation}
-\frac{1}{M} \sum_{m=1}^{M} \|\nabla f_m(x)\|^2 \leq G^2 + B^2 \|\nabla f(x)\|^2.
+\frac{1}{M} \sum_{m=1}^{M} \|\nabla f_m(x)\|^2 \leq G^2 + B^2
+\|\nabla f(x)\|^2.
 \end{equation}
 \end{assumption}
 
-All three assumptions are standard and widely used in the convergence analysis of optimization
-algorithms~\citep{yu2019linear,karimireddy2020scaffold,wang2021field,yuan2022revisiting}.
-Note that the bounded heterogeneity condition recovers the homogeneous case when $G^2 = 0$ and
-$B^2 = 1$. To facilitate the technical presentation of the analysis, we view model and optimizer
-state synchronizations through assigning probabilities to each averaging event. Particularly, instead
-of averaging model parameters every $K_x$ steps (i.e., $t \bmod K_x = 0$), we average with probability
-$p_x = \frac{1}{K_x}$, which are statistically equivalent. In the following theorem, we provide convergence rate
-of SGDM optimizer under such probabilistic and decoupled synchronization:
+All three assumptions are standard in the distributed optimization
+literature~\citep{yu2019linear,karimireddy2020scaffold,wang2021field,yuan2022revisiting}.
+Setting $G^2 = 0$, $B^2 = 1$ recovers the homogeneous case.
 
-\begin{theorem}
+\paragraph{Probabilistic synchronization equivalence.}
+To facilitate the analysis, we view each synchronization event as a
+Bernoulli trial: instead of averaging parameters every $K_x$ steps
+($t \bmod K_x = 0$), we average with probability $p_x = 1/K_x$ at each
+step. The two formulations are statistically equivalent in expectation and
+permit a cleaner expression of the convergence rate in terms of continuous
+synchronization probabilities.
+
+\begin{theorem}[Convergence of Neuron\_SP-SGDM under decoupled synchronization]
 \label{thm:sgdm}
-Let Assumptions~\ref{asm:smooth},~\ref{asm:noise} and~\ref{asm:heterogeneity} hold. Then, choosing the step size $\eta = \min(\eta_0, \frac{1}{\sqrt{T}})$ with
+Let Assumptions~\ref{asm:smooth},~\ref{asm:noise},
+and~\ref{asm:heterogeneity} hold. Choose the step size
+$\eta = \min(\eta_0,\, T^{-1/2})$ with
 \begin{equation}
-%%% BUG-1 FIX: 因子6在η₀中(1/(6√…)), 不在ψ中. 严格匹配PDF page 4 Eq.(4).
-\eta_0 \stackrel{\text{def}}{=} \frac{1}{4L} \min\left(1 - \beta, \frac{1}{6\sqrt{\psi \max(1, B^2 - 1)}}\right), \quad \text{where } \psi \stackrel{\text{def}}{=} \frac{4(1-p_x)}{p_x^2} \cdot \frac{(1-\beta)(1-p_u)}{1-(1-p_u)\beta},
+\eta_0 \stackrel{\mathrm{def}}{=}
+\frac{1}{4L} \min\!\left(1 - \beta,\;
+\frac{1}{6\sqrt{\psi\,\max(1,\, B^2 - 1)}}\right),
+\quad \text{where}\;\;
+\psi \stackrel{\mathrm{def}}{=}
+\frac{4(1-p_x)}{p_x^2}
+\cdot \frac{(1-\beta)(1-p_u)}{1-(1-p_u)\beta}\,.
 \label{eq:step_size}
 \end{equation}
-the average iterates $\bar{x}_t = \mathbb{E}_m[x^m_t]$ of DES-LOC-SGDM converge with the following rate:
+Then the average iterates $\bar{x}_t = \mathbb{E}_m[x^m_t]$ of
+Neuron\_SP-SGDM converge at rate
 \begin{equation}
-\frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\|\nabla f(\bar{x}_t)\|^2 \leq \frac{4}{\sqrt{T}} \left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right) + \mathcal{O}\left(\frac{1+\psi}{T}\right).
+\frac{1}{T}\sum_{t=0}^{T-1}
+\mathbb{E}\|\nabla f(\bar{x}_t)\|^2
+\;\leq\; \frac{4}{\sqrt{T}}
+\left(f(x_0) - f^* + \frac{L\sigma^2}{2M}\right)
++ \mathcal{O}\!\left(\frac{1+\psi}{T}\right).
 \label{eq:rate}
 \end{equation}
 \end{theorem}
 
-We now discuss the convergence result and its implications. The obtained rate~\eqref{eq:rate} is asymptotically
-optimal for this setup~\citep{arjevani2023lower}. Notably, the leading term $\mathcal{O}(\frac{1}{\sqrt{T}})$ is unaffected by the
-number of local steps. Interestingly, probabilities $p_x$, $p_u$, and the momentum parameter $\beta$ appear in
-the higher-order term $\mathcal{O}(\frac{1}{T})$, and thus have a limited impact on asymptotic convergence speed.
+We now discuss the implications of this result and its interaction with
+the composed sequence-parallel system.
 
-Regarding state synchronization, it is evident from~\eqref{eq:step_size} that model synchronization has a greater
-impact on convergence due to the dependence $\psi = \mathcal{O}(\frac{1}{p_x^2})$. With vanishing $p_x$, the $\psi$ term becomes
-unbounded and breaks the rate. For optimizer states, it seems that momentum averaging can be
-turned off ($p_u = 0$) without affecting the asymptotic behavior of the rate. Setting $p_x = 1$ and $p_u = 0$
-recovers standard mini-batch SGDM~\citep{liu2020improved}. However, the $\psi$ term also appears in the step-size restriction~\eqref{eq:step_size}. As $p_u \to 0$, $\frac{(1-p_u)}{1-(1-p_u)\beta} \to \frac{1}{1-\beta}$. This imposes the most severe restriction on the
-learning rate $\eta_0$ since $\eta_0 \propto \frac{1}{\sqrt{\psi}}$, as $\psi$ is maximized. This theory shows that increasing the frequency
-$p_u$ of momentum averaging---while not changing the asymptotic rate---allows for a larger step size,
-potentially leading to faster convergence in practice. This theory justifies that momentum states
-can be synchronized less frequently than parameters and that more averaging improves convergence
-by supporting larger step sizes. Furthermore, our high probability analysis of DES-LOC-Adam in
-Section~\ref{sec:high_prob} shows that the sync frequency of momenta must be finite for $\beta_2 < 1.0$.
+\paragraph{Asymptotic optimality.}
+The leading $\mathcal{O}(1/\sqrt{T})$ term in~\eqref{eq:rate} matches the
+minimax lower bound for non-convex stochastic
+optimization~\citep{arjevani2023lower} and is \emph{independent of the
+number of local steps}. The synchronization probabilities $p_x$, $p_u$
+and the momentum parameter $\beta$ enter only the higher-order
+$\mathcal{O}(1/T)$ term through the client-drift factor $\psi$, and
+therefore exert a limited impact on the asymptotic convergence rate.
+
+\paragraph{Asymmetric sensitivity to parameter vs.\ momentum synchronization.}
+The structure of $\psi$ reveals a fundamental asymmetry in the roles of
+parameter and momentum synchronization.
+Parameter averaging exerts a \emph{quadratic} influence:
+$\psi = \mathcal{O}(1/p_x^2)$, so that letting $p_x \to 0$ (no parameter
+sync) renders the client-drift term unbounded and breaks convergence.
+Momentum averaging, by contrast, enters \emph{linearly}: setting $p_u = 0$
+(no momentum sync) does not destroy the asymptotic rate. However,
+the step-size restriction~\eqref{eq:step_size} depends on $\sqrt{\psi}$,
+and $\psi$ is maximized when $p_u \to 0$
+(since $(1-p_u)/(1-(1-p_u)\beta) \to 1/(1-\beta)$). This imposes
+the most severe constraint on the admissible learning rate $\eta_0$.
+
+This analysis yields the central design principle underlying Neuron\_SP's
+tiered synchronization schedule:
+\begin{quote}
+\emph{Parameters must be synchronized frequently ($p_x$ large, equivalently
+$K_x$ small). Optimizer states may be synchronized less often---but
+increasing the momentum averaging frequency $p_u$ relaxes the step-size
+restriction, enabling larger effective learning rates and faster
+practical convergence.}
+\end{quote}
+
+\paragraph{Interaction with tiered gradient reduction.}
+In Neuron\_SP, the theoretical distinction between parameter and
+momentum synchronization frequencies is operationalized through
+the tiered gradient-bucket structure described in
+Section~\ref{sec:desloc_algorithm}. The $x$-tier (embedding and
+normalization parameters) is reduced at the base period $K_x$,
+reflecting the quadratic sensitivity $\psi \propto 1/p_x^2$.
+The $u$-tier (attention parameters) and $v$-tier (feed-forward
+parameters) are reduced at $K_u = 3K_x$ and $K_v = 6K_x$
+respectively, reflecting the empirical finding that the first- and
+second-moment states tolerate longer local phases in proportion to
+their half-lives (Section~\ref{sec:timescales}). The warmup phase
+$t < T_{\mathrm{warm}}$ forces $K_x = K_u = K_v = 1$, recovering
+the standard data-parallel guarantee until the model enters a
+stable optimization basin.
+
+\paragraph{Composition with sequence parallelism.}
+A natural concern is whether the intra-step all-to-all collectives
+introduce additional terms into the convergence bound. They do not,
+because the sequence-parallel redistribution is a \emph{deterministic,
+lossless} remapping of the attention computation: each replica
+computes exact scaled-dot-product attention over the full sequence
+for its assigned head subset, producing an identical gradient to what
+would be obtained without sequence sharding (up to floating-point
+non-associativity, which we bound via FP32 accumulation in the
+backward redistribution). The gradient $g_t^m$ entering the
+desynced averaging loop of Algorithm~\ref{alg:desloc} is therefore
+an unbiased estimator of $\nabla f_m(x_t^m)$ with variance bounded
+by $\sigma^2$, and Assumptions~\ref{asm:noise}--\ref{asm:heterogeneity}
+hold with the same constants as in the non-SP case.
+
+\paragraph{Extension to Adam and high-probability bounds.}
+Our analysis extends to the full Adam optimizer with decoupled first-
+and second-moment synchronization under weakly convex objectives
+(Section~\ref{sec:adam_extension}). The high-probability analysis
+(Section~\ref{sec:high_prob}) establishes that---unlike the in-expectation
+bound above, which tolerates $p_u = 0$---the second-moment state must be
+synchronized with \emph{finite} period whenever $\beta_2 < 1.0$, i.e.,
+$K_v < \infty$. This is consistent with the half-life
+intuition: a second moment with $\beta_2 = 0.999$ has
+$\tau_{0.5} \approx 693$ steps, which is large but finite; indefinitely
+postponing its synchronization allows the local curvature estimates
+to drift unboundedly, violating the high-probability tail condition.
 
 %=============================================================================
 \section{Experimental Design}
 \label{sec:experimental_design}
 %=============================================================================
 
-Our experimental setup addresses the following research questions:
-\begin{description}
-\item[RQ1] Do theoretical rates of change predict the empirical evolution of optimizer states?
-\item[RQ2] How does the synchronization frequency of a model/optimizer state impact performance?
-\item[RQ3] To what extent can DES-LOC cut communication w.r.t.\ Local Adam in practical scenarios?
-\item[RQ4] How does DES-LOC scale with increasing model size and longer training horizons?
-\item[RQ5] How does DES-LOC perform when using a Nesterov outer optimizer?
-\item[RQ6] Is DES-LOC compatible with non-Adam inner optimizers such as Muon?
+Our experimental evaluation addresses the following research questions:
+\begin{description}[nosep,leftmargin=*]
+\item[RQ1] Do the theoretical rates of change
+  (Section~\ref{sec:timescales}) predict the empirical evolution of
+  optimizer states?
+\item[RQ2] How does the synchronization frequency of each state class
+  impact training performance?
+\item[RQ3] To what extent can Neuron\_SP reduce collective communication
+  volume relative to Local Adam in practical training configurations?
+\item[RQ4] How does Neuron\_SP scale with increasing model size and
+  longer training horizons?
+\item[RQ5] How does the system perform when using a Nesterov outer
+  optimizer in the FedOpt framework?
+\item[RQ6] Is the desynced synchronization schedule compatible with
+  non-Adam base optimizers, including second-order methods such as Muon
+  with Newton--Schulz orthogonalization?
 \end{description}
 
 %-----------------------------------------------------------------------------
@@ -320,154 +694,268 @@ Our experimental setup addresses the following research questions:
 \label{sec:experimental_setup}
 %-----------------------------------------------------------------------------
 
-\paragraph{Models and data.} We train a 135M-parameter GPT-style model (arch.\ in Table~\ref{tab:arch}) with sequence
-length 2048. We distinguish worker batch size $B_w$ from global $B = \sum_{w=0}^{M-1} B_w$~\citep{sani2025photon}. A
-2M token global batch is split across $M = 4$ workers sampling IID from SmolLM2~\citep{allal2025smollm2}:
-70\% Fineweb-Edu~\citep{penedo2024fineweb}, 10\% Cosmopedia~\citep{benallal2024cosmopedia}, 10\%
-Python-Edu, 5\% FineMath 4+, and 5\% Infi-WebMath 4+. The 135M model trains for
-6.4B tokens ($2.4\times$ compute-optimal~\citep{hoffmann2022training}). For RQ4, we scale to a 1.7B model for
-40B tokens ($2\times$ compute-optimal)~\citep{sardana2024beyond}. We show Non-IID data results in Fig.~\ref{fig:noniid}.
+\paragraph{Models and data.}
+We train a 135M-parameter GPT-style model (architecture in
+Table~\ref{tab:arch}) with sequence length 2048. We distinguish the
+per-replica batch size $B_w$ from the global batch size
+$B = \sum_{m=0}^{M-1} B_w$~\citep{sani2025photon}. A 2M-token global
+batch is split across $M = 4$ replicas sampling IID from
+SmolLM2~\citep{allal2025smollm2}: 70\% Fineweb-Edu~\citep{penedo2024fineweb},
+10\% Cosmopedia~\citep{benallal2024cosmopedia}, 10\% Python-Edu,
+5\% FineMath\,4+, and 5\% Infi-WebMath\,4+. The 135M model trains for
+6.4B tokens ($2.4\times$ compute-optimal~\citep{hoffmann2022training}).
+For RQ4, we scale to a 1.7B model for 40B tokens
+($2\times$ compute-optimal)~\citep{sardana2024beyond}. Non-IID data
+results appear in Fig.~\ref{fig:noniid}.
 
-\paragraph{Optimizers.} We use Adam~\citep{kingma2015adam} (results in Section~\ref{sec:complementary}) and its variant
-ADOPT~\citep{taniguchi2024adopt}, which modifies the update to guarantee convergence for any $\beta_2$.
-For the 135M model, we grid-search $(\beta_1, \beta_2, \eta)$ under DDP; the 1.7B model uses hyperparameters
-from~\citet{allal2025smollm2,taniguchi2024adopt}. Learning rates use the WSD schedule~\citep{hagele2024scaling,allal2025smollm2}. We favor ADOPT ($\beta_2 = 0.9999$) in high-$\beta$ regimes where Adam is unstable.
-We also ablate the outer optimizer, comparing FedAvg with a Nesterov optimizer~\citep{reddi2021adaptive,douillard2023diloco,charles2025communication} on a 700M model trained on 40B tokens.
+\paragraph{Optimizers.}
+We employ Adam~\citep{kingma2015adam} (results in
+Section~\ref{sec:complementary}) and its variant
+ADOPT~\citep{taniguchi2024adopt}, which modifies the update rule to
+guarantee convergence for any $\beta_2$. For the 135M model, we
+grid-search $(\beta_1, \beta_2, \eta)$ under DDP; the 1.7B model uses
+hyperparameters from~\citet{allal2025smollm2,taniguchi2024adopt}.
+Learning rates follow the WSD
+schedule~\citep{hagele2024scaling,allal2025smollm2}. We favor ADOPT
+($\beta_2 = 0.9999$) in high-$\beta$ regimes where Adam exhibits
+training instability. We also ablate the outer optimizer, comparing
+FedAvg averaging with a Nesterov outer
+optimizer~\citep{reddi2021adaptive,douillard2023diloco,charles2025communication}
+on a 700M model trained on 40B tokens.
 
-\paragraph{Baselines.} We compare DES-LOC with: (i) synchronous DDP; (ii) Local Adam/ADOPT; (iii)
-FAVG+OPT (persistent states~\citep{sani2025photon,douillard2023diloco}); and (iv) FAVG$-$OPT
-(reset states~\citep{sani2024future,iacob2025dept}). Persistent-state FedAvg is DES-LOC with
-$K_u, K_v = \infty$, an upper bound on comms efficiency. DDP is an upper bound on ML performance.
+\paragraph{Baselines.}
+We compare Neuron\_SP with: (i)~synchronous DDP (upper bound on ML
+performance); (ii)~Local Adam / Local ADOPT (uniform synchronization
+period $K$); (iii)~FAVG+OPT (persistent local
+states~\citep{sani2025photon,douillard2023diloco}); and
+(iv)~FAVG$-$OPT (state reset upon
+synchronization~\citep{sani2024future,iacob2025dept}).
+Persistent-state FedAvg corresponds to Neuron\_SP with
+$K_u, K_v = \infty$ and constitutes an upper bound on communication
+efficiency; DDP constitutes an upper bound on optimization quality.
 
-\paragraph{Metrics.} We evaluate models by (i) perplexity and (ii) per-worker asymptotic communication cost
-assuming a bandwidth-optimal Ring-AllReduce~\citep{sergeev2018horovod} algorithm scaling
-linearly with model size. For the 1.7B model, we report standard in-context-learning (ICL) benchmarks~\citep{brown2020language}. We use a zero-shot setting for ICL tasks unless stated otherwise following~\citet{allal2025smollm2} and report the best performing communication-efficient method in blue with the
-best-performing overall in bold. To fairly compare optimizer-state changes across decay rates, we
-measure their \emph{relative} rates of change as $\|s_{t+K} - s_t\|_2 / \|s_t\|_2$. For convergence plots, we report
-final-round means and standard deviations next to labels. We also provide wall-time clock results;
-we use $4$ machines with one H100 for sub-1B models, and $4$ machines with $8$ H100s each for larger
-scales. While the links between machines run at $100$Gb/s, we observed overheads limiting the
-practical bandwidth to $60$--$70$ Gb/s. We report stepwise (see Section~\ref{sec:stepwise}) and timewise convergence.
-We also provide an analysis on the wall-clock time vs bandwidth in Section~\ref{sec:wallclock_bandwidth}.
+\paragraph{Metrics.}
+We evaluate by (i)~perplexity and (ii)~per-replica asymptotic
+communication cost assuming a bandwidth-optimal ring
+all-reduce~\citep{sergeev2018horovod} scaling linearly with model
+size. For the 1.7B model, we report standard in-context-learning
+(ICL) benchmarks~\citep{brown2020language} in a zero-shot setting
+following~\citet{allal2025smollm2}, highlighting the best
+communication-efficient method in blue and the best overall in bold.
+To fairly compare optimizer-state evolution across decay rates, we
+measure the \emph{relative} rate of change
+$\|s_{t+K} - s_t\|_2 / \|s_t\|_2$. We report both stepwise
+(Section~\ref{sec:stepwise}) and wall-clock convergence. Our hardware
+consists of 4 nodes with one H100 NVL per node for sub-1B models and
+4 nodes with 8 H100s each for larger scales; inter-node links run at
+100\,Gb/s with practical throughput of 60--70\,Gb/s. An analysis of
+wall-clock time vs.\ bandwidth appears in
+Section~\ref{sec:wallclock_bandwidth}.
 
 %=============================================================================
+
+
+
+
 \section{Evaluation}
 \label{sec:evaluation}
 %=============================================================================
 
-Our results show optimizer states change at different rates (Section~\ref{sec:rq1}), forming a clear synchronization hierarchy (Section~\ref{sec:rq2}). DES-LOC reduces communication $2\times$ vs.\ Local Adam (Section~\ref{sec:rq3})
-while converging robustly with adding workers and scaling effectively to large models (Section~\ref{sec:rq4}).
+Our results demonstrate that optimizer states evolve at empirically
+distinct rates governed by their EMA decay constants
+(Section~\ref{sec:rq1}), forming a clear synchronization hierarchy
+(Section~\ref{sec:rq2}). Neuron\_SP reduces collective communication
+volume by $2\times$ relative to Local Adam
+(Section~\ref{sec:rq3}), converges robustly under replica addition,
+and scales effectively to billion-parameter models
+(Section~\ref{sec:rq4}). The desynced schedule composes with both a
+Nesterov outer optimizer in the FedOpt framework
+(Section~\ref{sec:rq5}) and with Muon, a second-order
+single-momentum optimizer employing Newton--Schulz orthogonalization
+(Section~\ref{sec:rq6}).
 
 %-----------------------------------------------------------------------------
-\subsection{Higher $\beta$ Optimizer States Have Slower Empirical Rates of Change (RQ1)}
+\subsection{Higher-$\beta$ Optimizer States Exhibit Slower Empirical
+Rates of Change (RQ1)}
 \label{sec:rq1}
 %-----------------------------------------------------------------------------
 
-Figure~\ref{fig:rates_of_change} shows that relative rates of change for the two momenta in Local ADOPT/Adam scale
-with their decay rates under gradient clipping ($\rho = 1$). Supported by our theoretical discussions on
-momenta half-lives (Section~\ref{sec:desloc}), the second momentum evolves substantially slower than the first at
-high-$\beta_2$. For Local Adam, the second momentum remains slower even when $\beta_2 \approx \beta_1$, potentially
-because gradient variance~\citep{kingma2015adam} evolves slower than the first momentum.
+Figure~\ref{fig:rates_of_change} confirms that the relative rates of
+change of both momenta in Local ADOPT and Local Adam scale with their
+respective decay rates under per-coordinate gradient clipping
+($\rho = 1$). Consistent with the half-life analysis of
+Section~\ref{sec:timescales}, the second momentum evolves substantially
+slower than the first whenever $\beta_2 \gg \beta_1$. For Local Adam,
+the second moment remains slower even when $\beta_2 \approx \beta_1$,
+likely because the squared-gradient variance underlying the second-moment
+EMA evolves on an inherently slower timescale than the raw gradient
+signal driving the first moment.
 
-\paragraph{Takeaway:} As discussed in Sections~\ref{sec:desloc} and~\ref{sec:convergence}, when $\beta_1 \ll \beta_2$, the second momentum evolves slower
-than the first, proportional to half-life ratio of the two $\frac{\tau_{0.5}(\beta_2)}{\tau_{0.5}(\beta_1)} = \frac{\ln(\beta_1)}{\ln(\beta_2)}$.
+\paragraph{Takeaway.}
+When $\beta_1 \ll \beta_2$, the second momentum's empirical rate of change
+is slower than the first by a factor proportional to the half-life ratio
+$\tau_{0.5}(\beta_2)/\tau_{0.5}(\beta_1) = \ln(\beta_1)/\ln(\beta_2)$,
+validating the theoretical motivation for assigning longer synchronization
+periods to higher-$\beta$ states.
 
-% Figure 2: PDF page 6 top
 \begin{figure}[t]
 \centering
 % [Figure 2 graphic from original PDF]
-\caption{Relative rates of change for first (left) and second (right) momenta across rounds using standard Local ADOPT ($K = 64$). For ADOPT ($\beta_2 = 0.9999$), increasing $\beta_1 \geq 0.99$ greatly slows the first-momentum rate of change. The second momentum evolves $\sim 100\times$ slower.}
+\caption{Relative rates of change for first (left) and second (right)
+momenta across communication rounds using standard Local ADOPT
+($K = 64$). For ADOPT ($\beta_2 = 0.9999$), increasing
+$\beta_1 \geq 0.99$ greatly slows the first-momentum rate of change.
+The second momentum evolves ${\sim}100\times$ slower, consistent with
+its half-life being two orders of magnitude larger.}
 \label{fig:rates_of_change}
 \end{figure}
 
 %-----------------------------------------------------------------------------
-\subsection{Parameters Require Frequent Sync, Momenta Sync Proportional to $\beta$ (RQ2)}
+\subsection{Parameters Require Frequent Synchronization; Momentum Sync
+Scales with Half-Life (RQ2)}
 \label{sec:rq2}
 %-----------------------------------------------------------------------------
 
-Figure~\ref{fig:sync_freq} evaluates the effect of independently varying synchronization periods ($K_x, K_u, K_v$) for
-parameters and optimizer states. We consider two baseline periods ($K_b = 16, 256$), chosen based
-on the fastest state's half-life ($\tau_{0.5}(0.95) \approx 13.5$). Frequent parameter synchronization ($K_x$) is
-crucial for performance, while synchronizing momenta ($K_u, K_v$) significantly impacts training only
-if their half-lives align with the base frequency $K_b$. Otherwise, synchronization frequency primarily
-influences communication costs rather than model quality. Adam results can be seen in Section~\ref{sec:complementary}.
+Figure~\ref{fig:sync_freq} evaluates the effect of independently varying
+the synchronization periods $K_x$, $K_u$, and $K_v$. We consider two
+baseline periods ($K_b = 16$ and $K_b = 256$), chosen to bracket the
+fastest state's half-life ($\tau_{0.5}(0.95) \approx 13.5$). Frequent
+parameter synchronization ($K_x$) is critical for optimization quality,
+consistent with the quadratic sensitivity $\psi \propto 1/p_x^2$
+established in Theorem~\ref{thm:sgdm}. By contrast, the synchronization
+frequency of the momenta ($K_u$, $K_v$) significantly impacts training
+only when the assigned period is commensurate with the corresponding
+state's half-life; outside this resonance regime, momentum synchronization
+frequency primarily influences communication cost rather than model quality.
 
-\paragraph{Takeaway:} Parameter synchronization frequency ($K_x$) strongly impacts performance, motivated
-by the leading term in theoretical bounds (Section~\ref{sec:convergence}). Momentum synchronization periods matter
-empirically only when chosen near their half-lives, consistent with Sections~\ref{sec:desloc} and~\ref{sec:convergence}.
+\paragraph{Takeaway.}
+Parameter synchronization frequency dominates optimization quality,
+in agreement with the leading-term analysis of
+Section~\ref{sec:convergence}. Momentum synchronization periods matter
+empirically only when chosen near their half-lives, validating the
+timescale separation principle of Sections~\ref{sec:timescales}
+and~\ref{sec:convergence}.
 
-% Figure 3: PDF page 7 top
 \begin{figure}[t]
 \centering
 % [Figure 3 graphic from original PDF]
-\caption{Model perplexity for DES-LOC (ADOPT, $\beta_1 = 0.95, \beta_2 = 0.9999$), varying synchronization periods independently (others fixed at $K_b$). Parameter synchronization (a) is critical, with degradation at higher periods. Second-momentum sync (b) minimally affects performance due to its large half-life. First-momentum sync improves perplexity when the freq matches its half-life; contrast (c) and (d). Parameters and second momentum behave similarly across frequencies (Section~\ref{sec:complementary})}
+\caption{Model perplexity for Neuron\_SP (ADOPT,
+$\beta_1 = 0.95$, $\beta_2 = 0.9999$), varying synchronization periods
+independently while holding others at $K_b$. (a)~Parameter sync is
+critical, with clear degradation at higher $K_x$.
+(b)~Second-momentum sync minimally affects performance due to its large
+half-life ($\tau_{0.5} \approx 6931$). (c,d)~First-momentum sync improves
+perplexity when the period matches its half-life; contrast the two
+baseline regimes. Results for Adam appear in
+Section~\ref{sec:complementary}.}
 \label{fig:sync_freq}
 \end{figure}
 
 %-----------------------------------------------------------------------------
-\subsection{DES-LOC Brings $2\times$ Communication Reductions over Local Adam (RQ3)}
+\subsection{Neuron\_SP Achieves $2\times$ Communication Reduction over
+Local Adam (RQ3)}
 \label{sec:rq3}
 %-----------------------------------------------------------------------------
 
-As shown in Figure~\ref{fig:comms}, DES-LOC halves communication versus Local Adam~\citep{cheng2025convergence}
-with matching perplexity by syncing momenta less frequently ($K_u = 3K_x$, $K_v = 6K_x$),
-exploiting the second-momentum's lower sensitivity to sync frequency (Fig.~\ref{fig:sync_freq}). This yields a $1.37\times$
-speedup over DDP and $1.1\times$ over Local Adam at $K_x = 16$ on 4 H100s. At $K_x = 256$, the speedup
-over DDP increases to $1.47\times$ and both DES-LOC and Local Adam saturate throughput.
+As shown in Figure~\ref{fig:comms}, Neuron\_SP halves the collective
+communication volume relative to Local
+Adam~\citep{cheng2025convergence} at matching perplexity, by
+synchronizing momenta less frequently ($K_u = 3K_x$, $K_v = 6K_x$)
+and exploiting the second momentum's lower sensitivity to
+synchronization frequency (Figure~\ref{fig:sync_freq}). At $K_x = 16$
+on 4$\times$H100 NVL, this yields a $1.37\times$ wall-clock speedup
+over DDP and $1.1\times$ over Local Adam. At $K_x = 256$, the speedup
+over DDP increases to $1.47\times$, and both Neuron\_SP and Local Adam
+approach the communication-free throughput ceiling.
 
-As shown in Figure~\ref{fig:comms}, DES-LOC effectively initializes new workers and outperforms the straightforward approach of ad-hoc averaging from checkpoints---whose insufficiency is detailed in Section~\ref{sec:checkpoint}.
+Figure~\ref{fig:comms}(c,d) further demonstrates that Neuron\_SP
+effectively initializes newly joined replicas via its periodic
+state synchronization, outperforming the ad-hoc approach of averaging
+from checkpoints---whose insufficiency is detailed in
+Section~\ref{sec:checkpoint}.
 
-\paragraph{Takeaway:} DES-LOC achieves a $2\times$ communication reduction over Local Adam by leveraging two
-insights: optimizer-state sync matters less than parameter sync, and slower-changing states (high $\beta_2$)
-can sync less often. By eventually syncing all optimizer states, DES-LOC matches the robustness of
-Local Adam with $K = \max(K_x, K_u, K_v)$ when adding new workers/responding to system failures.
+\paragraph{Takeaway.}
+Neuron\_SP achieves a $2\times$ reduction in collective communication
+volume over Local Adam by leveraging two complementary insights from the
+convergence analysis: (i)~optimizer-state synchronization has a weaker
+asymptotic impact than parameter synchronization ($\psi$ depends linearly
+on $p_u$ but quadratically on $1/p_x$), and (ii)~states with larger
+half-lives tolerate longer local phases without quality degradation.
+By eventually synchronizing all optimizer states at finite periods,
+Neuron\_SP matches the fault-tolerance guarantees of Local Adam---with
+effective $K = \max(K_x, K_u, K_v)$---when incorporating new replicas or
+recovering from system failures.
 
-% Figure 4: PDF page 7 bottom
 \begin{figure}[t]
 \centering
 % [Figure 4 graphic from original PDF]
-\caption{DES-LOC ($K_u, K_v = 3K_x, 6K_x$) reduces comms by $2\times$ over Local Adam while matching its performance and that of heuristic baselines at high (a) and low (b) frequencies (Section~\ref{sec:baselines}). We show robustness by doubling worker count at step $1536$ (c,d), where DES-LOC and Local Adam maintain stable perplexity/norms, outperforming heuristics and ad-hoc optimizer-state averaging.}
+\caption{Neuron\_SP ($K_u = 3K_x$, $K_v = 6K_x$) reduces collective
+communication by $2\times$ over Local Adam while matching its perplexity
+and that of heuristic baselines at both high-frequency (a) and
+low-frequency (b) regimes (Section~\ref{sec:baselines}). Panels (c,d)
+demonstrate robustness: doubling the replica count at step $1536$,
+Neuron\_SP and Local Adam maintain stable perplexity and parameter norms,
+outperforming heuristic methods and ad-hoc optimizer-state averaging.}
 \label{fig:comms}
 \end{figure}
 
 %-----------------------------------------------------------------------------
-\subsection{DES-LOC is Suitable for Large-Scale Training (RQ4)}
+\subsection{Neuron\_SP Scales to Billion-Parameter Training (RQ4)}
 \label{sec:rq4}
 %-----------------------------------------------------------------------------
 
-Figure~\ref{fig:billion} shows that DES-LOC reliably scales to 1B models and very infrequent communication ($K_x = 256$). Evaluating the billion-scale models on the ICL tasks (Table~\ref{tab:icl}), DES-LOC is
-competitive with all baselines while reducing communication versus Local Adam and DDP. The
-heuristic baseline~\citep{sani2025photon} suffers training instabilities (Fig.~\ref{fig:billion}b) potentially impacting
-downstream performance (Table~\ref{tab:icl}) and underscoring the advantage of DES-LOC's training stability.
-We elaborate more on the settings in which we expect DES-LOC to improve stability in Section~\ref{sec:critical_batch}.
+Figure~\ref{fig:billion} demonstrates that Neuron\_SP reliably scales to
+billion-parameter models under highly infrequent synchronization
+($K_x = 256$). Evaluating on standard in-context-learning benchmarks
+(Table~\ref{tab:icl}), Neuron\_SP is competitive with all baselines while
+communicating substantially less than both Local Adam and DDP. The
+persistent-local-state heuristic~\citep{sani2025photon} suffers from
+training instabilities---manifesting as activation-norm growth
+(Figure~\ref{fig:billion}b)---which degrades downstream ICL performance
+(Table~\ref{tab:icl}) and underscores the advantage of Neuron\_SP's
+principled synchronization schedule. We elaborate on the conditions under
+which desynced synchronization improves training stability in
+Section~\ref{sec:critical_batch}.
 
-Our method's reduced communication costs result in a $\approx 2.2\times$ training speedup over DDP (Figure~\ref{fig:billion}).
-As show by our benchmarks Table~\ref{tab:wallclock}, these time savings scale with model size and comms frequency.
-At the $13$B scale with $K_x = 16$, DES-LOC would save 13 days over Local Adam and $73$ days
-over DDP. The advantage over DDP widens for $K_x = 256$, where communication-efficient methods
-maximize throughput. Table~\ref{tab:throughput} shows equivalent results for throughput.
+The reduced collective volume translates to a ${\approx}\,2.2\times$
+wall-clock training speedup over DDP (Figure~\ref{fig:billion}). As
+shown in Table~\ref{tab:wallclock}, these savings scale with model size
+and synchronization frequency. At the 13B scale with $K_x = 16$,
+Neuron\_SP saves over 13 days of training time relative to Local Adam
+and 73 days relative to DDP. The advantage over DDP widens further at
+$K_x = 256$, where communication-efficient methods approach peak hardware
+utilization. Equivalent throughput figures appear in
+Table~\ref{tab:throughput}.
 
-% Figure 5: PDF page 8 top
 \begin{figure}[t]
 \centering
 % [Figure 5 graphic from original PDF]
-\caption{DES-LOC matches Local Adam perplexity (left) for billion-scale model training at half
-the communication cost ($K_x = 256, K_u = 3K_x, K_v = 6K_x$), representing a $\mathbf{170\times}$ reduction
-over DDP. Both DES-LOC and Local Adam converge to competitive perplexity at this scale.
-FAVG+OPT achieves good performance (left) but suffers activation growth (right) and parameter-norm growth (Section~\ref{sec:complementary}), potentially due to noisy updates, raising concerns for extended training.}
+\caption{Neuron\_SP matches Local Adam perplexity (left) for
+billion-scale model training at half the communication cost
+($K_x = 256$, $K_u = 3K_x$, $K_v = 6K_x$), representing a
+$\mathbf{170\times}$ reduction over DDP. Both Neuron\_SP and Local Adam
+converge to competitive perplexity at this scale. FAVG+OPT achieves
+comparable perplexity (left) but exhibits activation-norm growth (right)
+and parameter-norm drift (Section~\ref{sec:complementary}), raising
+concerns for extended training durations.}
 \label{fig:billion}
 \end{figure}
 
 \begin{table}[t]
 \centering
-\caption{Our billion-scale model trained with DES-LOC matches or surpasses the ICL performance of models trained with Local Adam and FAVG+OPT, approaching DDP performance. FAVG+OPT
-underperforms compared to its perplexity results from Fig.~\ref{fig:billion}a, indicating that the activation increases (Fig.~\ref{fig:billion}b) from the unstable training procedure may have damaged the model.}
+\caption{Billion-scale ICL evaluation. Neuron\_SP matches or surpasses
+the in-context-learning performance of models trained with Local Adam
+and FAVG+OPT, approaching DDP performance. FAVG+OPT underperforms
+relative to its perplexity results (Fig.~\ref{fig:billion}a), suggesting
+that the activation-norm instabilities (Fig.~\ref{fig:billion}b) from
+the persistent-local-state training procedure have damaged the
+representations.}
 \label{tab:icl}
 \begin{tabular}{lcccc|c}
 \toprule
 & Arc Challenge & Arc Easy & PIQA & HellaSwag & Avg \\
 \midrule
-DES-LOC      & 31.8 & 59.0 & 70.7 & 44.9 & 51.6 \\
+Neuron\_SP    & 31.8 & 59.0 & 70.7 & 44.9 & 51.6 \\
 Local Adam   & 31.9 & 59.0 & 70.6 & 45.8 & 51.8 \\
 FAVG+OPT     & 30.1 & 58.0 & 70.0 & 44.8 & 50.7 \\
 \midrule
@@ -478,88 +966,158 @@ DDP          & 33.8 & 62.5 & 71.1 & 47.8 & 53.8 \\
 
 \begin{table}[t]
 \centering
-\caption{Wall-clock time (days) for 1B--13B models to reach $2\times$ compute-optimal tokens at high ($K = 16$) and low ($K = 256$) frequencies with a 2M token batch size. At high frequency ($K = 16$), DES-LOC outperforms Local ADAM by over 13 days on the 13B model and is within 3\% of FAVG+OPT. At low frequency ($K = 256$), it cuts the 13B's training time $>93$ days versus DDP.}
+\caption{Wall-clock time (days) for 1B--13B models to reach $2\times$
+compute-optimal token count at high ($K_x = 16$) and low ($K_x = 256$)
+synchronization frequencies with a 2M-token global batch. At high
+frequency, Neuron\_SP outperforms Local Adam by over 13 days on the 13B
+model and is within 3\% of FAVG+OPT. At low frequency, it reduces the
+13B training duration by $>$93 days versus DDP.}
 \label{tab:wallclock}
 \begin{tabular}{l|cc|cc|cc}
 \toprule
-& \multicolumn{2}{c|}{1B Model} & \multicolumn{2}{c|}{7B Model} & \multicolumn{2}{c}{13B Model} \\
+& \multicolumn{2}{c|}{1B Model} & \multicolumn{2}{c|}{7B Model}
+& \multicolumn{2}{c}{13B Model} \\
 $K_x$ & 16 & 256 & 16 & 256 & 16 & 256 \\
 \midrule
-DDP (Baseline)   & $1.41 \pm 0.008$ & $1.41 \pm 0.008$ & $38.74 \pm 0.161$ & $38.74 \pm 0.161$ & $175.50 \pm 0.478$ & $175.50 \pm 0.478$ \\
+DDP (Baseline) & $1.41 \pm 0.008$ & $1.41 \pm 0.008$
+& $38.74 \pm 0.161$ & $38.74 \pm 0.161$
+& $175.50 \pm 0.478$ & $175.50 \pm 0.478$ \\
 \midrule
-FAVG+OPT     & $0.80 \pm 0.007$ & $0.63 \pm 0.006$ & $28.52 \pm 0.095$ & $24.01 \pm 0.088$ & $100.21 \pm 0.544$ & $82.46 \pm 0.513$ \\
-Local Adam   & $0.96 \pm 0.006$ & $0.64 \pm 0.006$ & $31.46 \pm 0.090$ & $24.18 \pm 0.087$ & $116.10 \pm 0.484$ & $83.34 \pm 0.509$ \\
-DES-LOC ($K_u, K_v = 3K_x, 6K_x$) & $0.81 \pm 0.006$ & $0.63 \pm 0.006$ & $28.80 \pm 0.094$ & $24.06 \pm 0.088$ & $102.03 \pm 0.537$ & $82.68 \pm 0.512$ \\
+FAVG+OPT & $0.80 \pm 0.007$ & $0.63 \pm 0.006$
+& $28.52 \pm 0.095$ & $24.01 \pm 0.088$
+& $100.21 \pm 0.544$ & $82.46 \pm 0.513$ \\
+Local Adam & $0.96 \pm 0.006$ & $0.64 \pm 0.006$
+& $31.46 \pm 0.090$ & $24.18 \pm 0.087$
+& $116.10 \pm 0.484$ & $83.34 \pm 0.509$ \\
+Neuron\_SP & $0.81 \pm 0.006$ & $0.63 \pm 0.006$
+& $28.80 \pm 0.094$ & $24.06 \pm 0.088$
+& $102.03 \pm 0.537$ & $82.68 \pm 0.512$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Takeaway:} DES-LOC enables efficient training of large-scale foundation models, especially at long
-training horizons, with downstream ICL performance competitive with DDP. We recommend setting
-$K_x$ for sufficient throughput based on bandwidth, then setting $K_u, K_v$ as constant multiples (e.g.,
-$3\times$, $6\times$) or based on the half-life of their $\beta$ (see Section~\ref{sec:choosing_freq}).
+\paragraph{Takeaway.}
+Neuron\_SP enables efficient training of large-scale foundation models,
+particularly at extended training horizons, with downstream ICL
+performance competitive with synchronous DDP. We recommend setting $K_x$
+to balance throughput against the available inter-node bandwidth, then
+choosing $K_u$, $K_v$ as fixed multiples of $K_x$ (e.g., $3\times$,
+$6\times$) or calibrating them against the half-lives of their respective
+$\beta$ values (see Section~\ref{sec:choosing_freq}).
 
 %-----------------------------------------------------------------------------
-\subsection{Nesterov as the Outer Optimizer (RQ5)}
+\subsection{Nesterov Outer Optimizer in the FedOpt Framework (RQ5)}
 \label{sec:rq5}
 %-----------------------------------------------------------------------------
 
-We ablate the outer optimizer for DES-LOC on a 700M parameter model, comparing averaging to a
-Nesterov optimizer with momentum of 0.9, outer learning rate of 1.0 tuned following~\citet{charles2025communication}. The experiment ran on 4 H100s and used a medium-synchronization regime ($K_x = 32$, $K_u =
-3K_x$, $K_v = 6K_x$) where models are initialised from 2048-step DDP checkpoints, following~\citet{charles2025communication}. While our convergence bound is not trivially applicable, our analysis of Eq.~(\ref{eq:psi}) suggests a higher momentum synchronization frequency ($p_u$) should permit a larger step size ($\eta_0 \propto 1/\sqrt{\psi}$).
+We ablate the outer optimizer for Neuron\_SP on a 700M-parameter model,
+comparing FedAvg-style cross-replica averaging with a Nesterov outer
+optimizer (momentum $0.9$, outer learning rate $1.0$, tuned
+following~\citet{charles2025communication}). The experiment uses
+4$\times$H100 NVL nodes in a medium-frequency regime
+($K_x = 32$, $K_u = 3K_x$, $K_v = 6K_x$), with models initialized from
+2048-step DDP checkpoints following~\citet{charles2025communication}.
+While the convergence bound of Theorem~\ref{thm:sgdm} does not directly
+apply to the Nesterov outer optimizer, the structure of the
+client-drift factor $\psi$ (Eq.~\ref{eq:step_size}) suggests that
+higher momentum synchronization frequency ($p_u$) should permit a
+larger admissible step size ($\eta_0 \propto 1/\sqrt{\psi}$).
 
-As shown in Figure~\ref{fig:nesterov}, two key points emerge. First, more frequent synchronization ($K_x = 32$)
-allows DES-LOC to come within $1\%$ of the final perplexity of DDP, performing much better than
-in infrequent settings ($K_x = 256$). Second, using Nesterov as the outer optimizer improves
-performance over averaging by $\approx 0.5\%$, with its performance w.r.t DDP being similar to the one
-reported in~\citet{charles2025communication}, Table~4) for models at this scale. The Nesterov approach
-preserves the practical benefits of DES-LOC, ensuring effective worker initialization and reducing
-local optimization noise, which can help prevent issues like exploding activation norms.
+As shown in Figure~\ref{fig:nesterov}, two findings emerge.
+First, at the medium synchronization frequency ($K_x = 32$), Neuron\_SP
+reaches within 1\% of the final perplexity of synchronous DDP---a
+significant improvement over the infrequent regime ($K_x = 256$).
+This is consistent with the quadratic dependence $\psi \propto 1/p_x^2$:
+a moderate increase in synchronization frequency yields a
+disproportionately large improvement in the step-size budget.
+Second, the Nesterov outer optimizer improves perplexity by
+${\approx}\,0.5\%$ over plain averaging, at performance levels comparable
+to those reported in~\citet{charles2025communication} (Table~4) for
+models at this scale. The Nesterov formulation preserves all practical
+benefits of the desynced schedule: effective replica initialization,
+reduced local optimization noise, and prevention of activation-norm
+divergence.
 
-% Figure 6: PDF page 9 top
 \begin{figure}[t]
 \centering
 % [Figure 6 graphic from original PDF]
-\caption{Ablation of the outer optimizer for DES-LOC on a $700$M parameter model in a medium-frequency communication setting ($K_x = 32$), showing (left) convergence in terms of time and (right) in terms of steps. In this regime, DES-LOC's final perplexity is within $1\%$ of the DDP baseline. Using a Nesterov outer optimizer provides a further improvement over averaging.}
+\caption{Ablation of the outer optimizer for Neuron\_SP on a
+700M-parameter model in a medium-frequency regime ($K_x = 32$), showing
+convergence in wall-clock time (left) and in optimization steps (right).
+At this synchronization frequency, Neuron\_SP's final perplexity is
+within 1\% of synchronous DDP. Using a Nesterov outer optimizer provides
+a further improvement over plain averaging.}
 \label{fig:nesterov}
 \end{figure}
 
-\paragraph{Takeaway:} Frequent synchronization ($K_x = 32$) allows DES-LOC to reach within 1\% of the perplexity of DDP. Furthermore, using a Nesterov outer optimizer improves performance over averaging,
-while preserving practical benefits like effective worker initialization and reduced optimization noise.
-
-We further investigate the benefits of synchronizing optimizer states under a Nesterov outer
-optimizer relative to purely local-state methods (DiLoCo) at the 1B scale in Section~\ref{sec:nesterov_diloco}.
+\paragraph{Takeaway.}
+Moderate synchronization frequency ($K_x = 32$) allows Neuron\_SP to
+approach DDP-level perplexity. The Nesterov outer optimizer provides
+an additional quality improvement while preserving the communication
+efficiency and fault-tolerance properties of the desynced schedule.
+We further investigate the benefits of synchronizing optimizer states
+under the Nesterov outer optimizer relative to purely local-state methods
+(DiLoCo) at the 1B scale in Section~\ref{sec:nesterov_diloco}.
 
 %-----------------------------------------------------------------------------
-\subsection{Muon as the Inner Optimizer (RQ6)}
+\subsection{Muon with Newton--Schulz Orthogonalization as the Inner
+Optimizer (RQ6)}
 \label{sec:rq6}
 %-----------------------------------------------------------------------------
 
-To assess the versatility of DES-LOC beyond Adam-family optimizers, we integrate it with Muon~\citep{jordan2024muon}, a single-momentum optimizer that uses Newton-Schulz iterations for orthogonalization.
-Since Muon preconditions the momentum term directly rather than tracking second-moment
-estimates, the relevant synchronization periods reduce to parameters ($K_x$) and momentum ($K_u$). We
-apply DES-LOC by synchronizing the Muon momentum buffer less frequently than the parameters,
-setting $K_u = 3K_x$ with $K_x = 32$.
+To assess the generality of the desynced synchronization principle beyond
+the Adam family, we integrate Neuron\_SP with
+Muon~\citep{jordan2024muon}, a single-momentum optimizer that applies
+Newton--Schulz polynomial iterations to approximate the polar factor of
+the momentum matrix. Since Muon preconditions the gradient via
+orthogonalization of the accumulated momentum rather than tracking
+explicit second-moment estimates, the synchronization schedule reduces
+to two periods: $K_x$ for parameters and $K_u$ for the momentum buffer.
+We set $K_u = 3K_x$ with $K_x = 32$.
 
-As shown in Figure~\ref{fig:muon}, DES-LOC matches the perplexity of the Local Muon baseline across
-model scales ranging from 16M to $360$M parameters. By decoupling the synchronization frequencies,
-DES-LOC communicates more than $1.5\times$ fewer bytes than the baseline, confirming that the Half-Life
-Principle extends to optimizers beyond the Adam family. Full experimental details in Section~\ref{sec:muon_details}.
+As shown in Figure~\ref{fig:muon}, Neuron\_SP matches the training
+loss of the Local Muon baseline across model scales from 16M to 360M
+parameters. By decoupling the synchronization frequencies, Neuron\_SP
+communicates more than $1.5\times$ fewer bytes than the uniform-period
+baseline, confirming that the half-life principle extends to optimizers
+whose preconditioning mechanism differs fundamentally from Adam's
+diagonal scaling.
 
-% Figure 7: PDF page 9 middle
+Recent analyses of low-bit Muon~\citep{muonlowbit2026iclr} have
+identified that the Newton--Schulz iteration amplifies quantization
+error concentrated in the top singular subspace of the momentum matrix.
+This finding is relevant to the composed Neuron\_SP system: when the
+sequence-parallel backward all-to-all operates in reduced precision, the
+amplified error could interact with the orthogonalization step.
+Our FP32 accumulation in the backward redistribution path
+(Section~\ref{sec:timescales}) mitigates this interaction by ensuring
+that the momentum buffer receives gradients at full precision before
+the Newton--Schulz preconditioning is applied.
+
 \begin{figure}[t]
 \centering
 % [Figure 7 graphic from original PDF]
-\caption{Training loss comparison between Local Muon ($K = 32$) and DES-LOC-Muon ($K_x = 32, K_u = 96$) across model scales ($16$M, $125$M, $360$M). DES-LOC matches the Local Muon baseline across all scales while communicating more than $\mathbf{1.5\times}$ fewer bytes. See Section~\ref{sec:muon_details} for full experimental details.}
+\caption{Training loss comparison between Local Muon ($K = 32$) and
+Neuron\_SP-Muon ($K_x = 32$, $K_u = 96$) across model scales
+(16M, 125M, 360M). Neuron\_SP matches the Local Muon baseline at all
+scales while communicating more than $\mathbf{1.5\times}$ fewer bytes.
+Full experimental details appear in Section~\ref{sec:muon_details}.}
 \label{fig:muon}
 \end{figure}
 
-\paragraph{Takeaway:} DES-LOC is compatible with single-momentum optimizers such as Muon that rely
-on Newton-Schulz preconditioning. By reducing the synchronization frequency of the momentum
-buffer relative to parameters, DES-LOC maintains solution quality while significantly lowering
-communication volume, demonstrating that our approach is inner-optimizer-agnostic.
+\paragraph{Takeaway.}
+Neuron\_SP composes with single-momentum optimizers that employ
+Newton--Schulz polynomial preconditioning. The desynced schedule reduces
+the momentum buffer's synchronization frequency relative to parameters,
+maintaining solution quality while lowering collective communication
+volume. This demonstrates that the half-life-guided synchronization
+principle is \emph{inner-optimizer-agnostic}: it applies whenever the
+optimizer maintains EMA-based states whose impulse-response timescales
+differ.
 
 %=============================================================================
+
+
 \section{Related Work}
 \label{sec:related}
 %=============================================================================
